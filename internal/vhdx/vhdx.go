@@ -37,7 +37,7 @@ func (v *VHDXManager) CreateVHDX() error {
 
 	diskpartScript := v.generateDiskpartScript()
 	scriptPath := filepath.Join(vhdxDir, "create_vhdx.txt")
-	
+
 	if err := os.WriteFile(scriptPath, []byte(diskpartScript), 0644); err != nil {
 		return fmt.Errorf("failed to write diskpart script: %w", err)
 	}
@@ -85,7 +85,7 @@ func (v *VHDXManager) CreateSnapshot(name string) error {
 	}
 
 	snapshotPath := v.getSnapshotPath(name)
-	
+
 	cmd := exec.Command("powershell", "-Command", fmt.Sprintf(`
 		$vhd = "%s"
 		$snapshot = "%s"
@@ -102,7 +102,7 @@ func (v *VHDXManager) CreateSnapshot(name string) error {
 
 func (v *VHDXManager) ListSnapshots() ([]string, error) {
 	snapshotDir := filepath.Join(filepath.Dir(v.VHDXPath), "snapshots")
-	
+
 	if _, err := os.Stat(snapshotDir); os.IsNotExist(err) {
 		return []string{}, nil
 	}
@@ -124,7 +124,7 @@ func (v *VHDXManager) ListSnapshots() ([]string, error) {
 
 func (v *VHDXManager) RollbackToSnapshot(name string) error {
 	snapshotPath := v.getSnapshotPath(name)
-	
+
 	if _, err := os.Stat(snapshotPath); os.IsNotExist(err) {
 		return fmt.Errorf("snapshot not found: %s", name)
 	}
@@ -156,7 +156,7 @@ func (v *VHDXManager) isMounted() bool {
 
 func (v *VHDXManager) generateDiskpartScript() string {
 	sizeInMB := v.parseSizeToMB()
-	
+
 	script := fmt.Sprintf(`create vdisk file="%s" maximum=%d type=expandable
 select vdisk file="%s"
 attach vdisk
@@ -171,7 +171,7 @@ exit
 
 func (v *VHDXManager) parseSizeToMB() int {
 	size := strings.ToUpper(v.Size)
-	
+
 	if strings.HasSuffix(size, "GB") {
 		sizeStr := strings.TrimSuffix(size, "GB")
 		if gb := parseInt(sizeStr); gb > 0 {
@@ -183,7 +183,7 @@ func (v *VHDXManager) parseSizeToMB() int {
 			return mb
 		}
 	}
-	
+
 	return 10240
 }
 
@@ -203,7 +203,7 @@ func parseInt(s string) int {
 func (v *VHDXManager) executeDiskpartScript(script string) error {
 	tempDir := os.TempDir()
 	scriptPath := filepath.Join(tempDir, fmt.Sprintf("diskpart_%d.txt", time.Now().UnixNano()))
-	
+
 	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
 		return fmt.Errorf("failed to write diskpart script: %w", err)
 	}

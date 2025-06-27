@@ -147,7 +147,7 @@ func TestListSnapshotsWithFiles(t *testing.T) {
 	snapshotDir := filepath.Join(tempDir, "snapshots")
 
 	os.MkdirAll(snapshotDir, 0755)
-	
+
 	snapshotFiles := []string{"snap1.vhdx", "snap2.vhdx", "notavhdx.txt"}
 	for _, file := range snapshotFiles {
 		os.WriteFile(filepath.Join(snapshotDir, file), []byte("test"), 0644)

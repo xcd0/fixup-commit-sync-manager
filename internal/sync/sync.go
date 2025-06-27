@@ -153,7 +153,7 @@ func (s *FileSyncer) getNewFiles() ([]string, error) {
 
 func (s *FileSyncer) shouldIncludeFile(filePath string) bool {
 	ext := strings.ToLower(filepath.Ext(filePath))
-	
+
 	for _, includeExt := range s.cfg.IncludeExtensions {
 		if ext == strings.ToLower(includeExt) {
 			return !s.isExcluded(filePath)
@@ -249,7 +249,7 @@ func (s *FileSyncer) copyFileToOps(filePath string) error {
 
 func (s *FileSyncer) deleteFileFromOps(filePath string) error {
 	opsFilePath := filepath.Join(s.cfg.OpsRepoPath, filePath)
-	
+
 	if _, err := os.Stat(opsFilePath); os.IsNotExist(err) {
 		return nil
 	}
@@ -296,7 +296,7 @@ func (s *FileSyncer) gitAddChanges() error {
 
 func (s *FileSyncer) gitCommit(message string) error {
 	args := []string{"commit", "-m", message}
-	
+
 	if s.cfg.AuthorName != "" && s.cfg.AuthorEmail != "" {
 		author := fmt.Sprintf("%s <%s>", s.cfg.AuthorName, s.cfg.AuthorEmail)
 		args = append(args, "--author", author)
@@ -323,10 +323,10 @@ func (s *FileSyncer) getLastCommitHash() (string, error) {
 
 func (s *FileSyncer) generateCommitMessage(changes *SyncResult) string {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	
+
 	message := s.cfg.CommitTemplate
 	message = strings.ReplaceAll(message, "${timestamp}", timestamp)
-	
+
 	if changes.CommitHash != "" {
 		message = strings.ReplaceAll(message, "${hash}", changes.CommitHash[:8])
 	} else {
@@ -334,8 +334,8 @@ func (s *FileSyncer) generateCommitMessage(changes *SyncResult) string {
 	}
 
 	totalFiles := len(changes.FilesAdded) + len(changes.FilesModified) + len(changes.FilesDeleted)
-	summary := fmt.Sprintf(" (%d files: +%d ~%d -%d)", 
+	summary := fmt.Sprintf(" (%d files: +%d ~%d -%d)",
 		totalFiles, len(changes.FilesAdded), len(changes.FilesModified), len(changes.FilesDeleted))
-	
+
 	return message + summary
 }

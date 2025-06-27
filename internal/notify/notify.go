@@ -22,9 +22,9 @@ type SlackMessage struct {
 }
 
 type Attachment struct {
-	Color  string `json:"color,omitempty"`
-	Title  string `json:"title,omitempty"`
-	Text   string `json:"text,omitempty"`
+	Color  string  `json:"color,omitempty"`
+	Title  string  `json:"title,omitempty"`
+	Text   string  `json:"text,omitempty"`
 	Fields []Field `json:"fields,omitempty"`
 }
 
@@ -81,8 +81,8 @@ func (n *Notifier) createErrorMessage(operation string, err error, details map[s
 	}
 
 	return SlackMessage{
-		Text:     fmt.Sprintf("❌ FixupCommitSyncManager Error: %s", operation),
-		Username: "FixupCommitSyncManager",
+		Text:      fmt.Sprintf("❌ FixupCommitSyncManager Error: %s", operation),
+		Username:  "FixupCommitSyncManager",
 		IconEmoji: ":warning:",
 		Attachments: []Attachment{
 			{
@@ -110,8 +110,8 @@ func (n *Notifier) createSuccessMessage(operation string, details map[string]str
 	}
 
 	return SlackMessage{
-		Text:     fmt.Sprintf("✅ FixupCommitSyncManager Success: %s", operation),
-		Username: "FixupCommitSyncManager",
+		Text:      fmt.Sprintf("✅ FixupCommitSyncManager Success: %s", operation),
+		Username:  "FixupCommitSyncManager",
 		IconEmoji: ":white_check_mark:",
 		Attachments: []Attachment{
 			{
@@ -137,8 +137,8 @@ func (n *Notifier) createInfoMessage(title, text string, details map[string]stri
 	}
 
 	return SlackMessage{
-		Text:     fmt.Sprintf("ℹ️ FixupCommitSyncManager: %s", title),
-		Username: "FixupCommitSyncManager",
+		Text:      fmt.Sprintf("ℹ️ FixupCommitSyncManager: %s", title),
+		Username:  "FixupCommitSyncManager",
 		IconEmoji: ":information_source:",
 		Attachments: []Attachment{
 			{

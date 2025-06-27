@@ -19,7 +19,7 @@ func NewSyncCmd() *cobra.Command {
 	}
 
 	cmd.Flags().Bool("continuous", false, "設定された間隔で継続的に同期を実行")
-	
+
 	return cmd
 }
 
@@ -82,7 +82,7 @@ func runSingleSync(syncer *sync.FileSyncer, cfg *config.Config) error {
 	fmt.Printf("  Files added: %d\n", len(result.FilesAdded))
 	fmt.Printf("  Files modified: %d\n", len(result.FilesModified))
 	fmt.Printf("  Files deleted: %d\n", len(result.FilesDeleted))
-	
+
 	if result.CommitHash != "" {
 		fmt.Printf("  Commit: %s\n", result.CommitHash[:8])
 	}
@@ -150,12 +150,12 @@ func runContinuousSync(syncer *sync.FileSyncer, cfg *config.Config) error {
 				continue
 			}
 
-			fmt.Printf("[%s] ✓ Sync completed - Files: +%d ~%d -%d", 
+			fmt.Printf("[%s] ✓ Sync completed - Files: +%d ~%d -%d",
 				time.Now().Format("15:04:05"),
-				len(result.FilesAdded), 
-				len(result.FilesModified), 
+				len(result.FilesAdded),
+				len(result.FilesModified),
 				len(result.FilesDeleted))
-			
+
 			if result.CommitHash != "" {
 				fmt.Printf(" Commit: %s", result.CommitHash[:8])
 			}

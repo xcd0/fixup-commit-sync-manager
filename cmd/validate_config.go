@@ -58,7 +58,7 @@ func runValidateConfig(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println("✓ Configuration file is valid")
-	
+
 	if verbose {
 		printConfigSummary(cfg)
 	}
@@ -148,21 +148,21 @@ func printConfigSummary(cfg *config.Config) {
 	fmt.Printf("Log Level: %s\n", cfg.LogLevel)
 	fmt.Printf("Log File: %s\n", cfg.LogFilePath)
 	fmt.Printf("Include Extensions: %v\n", cfg.IncludeExtensions)
-	
+
 	if len(cfg.IncludePatterns) > 0 {
 		fmt.Printf("Include Patterns: %v\n", cfg.IncludePatterns)
 	}
 	if len(cfg.ExcludePatterns) > 0 {
 		fmt.Printf("Exclude Patterns: %v\n", cfg.ExcludePatterns)
 	}
-	
+
 	if cfg.VHDXPath != "" {
 		fmt.Printf("VHDX Path: %s\n", cfg.VHDXPath)
 		fmt.Printf("VHDX Mount Point: %s\n", cfg.MountPoint)
 		fmt.Printf("VHDX Size: %s\n", cfg.VHDXSize)
 		fmt.Printf("VHDX Encryption: %t\n", cfg.EncryptionEnabled)
 	}
-	
+
 	fmt.Printf("Dry Run: %t\n", cfg.DryRun)
 	fmt.Printf("Verbose: %t\n", cfg.Verbose)
 }

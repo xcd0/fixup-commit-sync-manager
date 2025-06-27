@@ -52,13 +52,13 @@ func TestValidateRepository(t *testing.T) {
 	tempDir := t.TempDir()
 	opsRepo := filepath.Join(tempDir, "ops")
 	gitDir := filepath.Join(opsRepo, ".git")
-	
+
 	os.MkdirAll(gitDir, 0755)
 
 	cfg := &config.Config{
-		OpsRepoPath:    opsRepo,
-		TargetBranch:   "master",
-		GitExecutable:  "git",
+		OpsRepoPath:   opsRepo,
+		TargetBranch:  "master",
+		GitExecutable: "git",
 	}
 
 	manager := NewFixupManager(cfg)

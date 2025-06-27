@@ -85,7 +85,7 @@ func TestIsExcluded(t *testing.T) {
 
 func TestIsPaused(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	cfg := &config.Config{
 		DevRepoPath:   tempDir,
 		PauseLockFile: ".sync-paused",
@@ -161,7 +161,7 @@ func TestCopyFileToOps(t *testing.T) {
 	tempDir := t.TempDir()
 	devDir := filepath.Join(tempDir, "dev")
 	opsDir := filepath.Join(tempDir, "ops")
-	
+
 	os.MkdirAll(devDir, 0755)
 	os.MkdirAll(opsDir, 0755)
 

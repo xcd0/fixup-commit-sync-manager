@@ -18,7 +18,7 @@ func NewFixupCmd() *cobra.Command {
 	}
 
 	cmd.Flags().Bool("continuous", false, "設定された間隔で継続的に fixup を実行")
-	
+
 	return cmd
 }
 
@@ -83,11 +83,11 @@ func runSingleFixup(fixupManager *fixup.FixupManager, cfg *config.Config) error 
 
 	fmt.Printf("✓ Fixup completed successfully\n")
 	fmt.Printf("  Files modified: %d\n", result.FilesModified)
-	
+
 	if result.FixupCommitHash != "" {
 		fmt.Printf("  Fixup commit: %s\n", result.FixupCommitHash[:8])
 	}
-	
+
 	if result.CommitHash != "" {
 		fmt.Printf("  Base commit: %s\n", result.CommitHash[:8])
 	}

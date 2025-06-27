@@ -13,7 +13,7 @@ import (
 func HandleInterrupt(cleanup func()) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	
+
 	go func() {
 		<-c
 		fmt.Println("\nReceived interrupt signal, cleaning up...")
@@ -156,11 +156,11 @@ func RemoveLockFile(path string) error {
 
 func TimedOperation(operation func() error, timeout time.Duration) error {
 	done := make(chan error, 1)
-	
+
 	go func() {
 		done <- operation()
 	}()
-	
+
 	select {
 	case err := <-done:
 		return err

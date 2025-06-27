@@ -38,7 +38,7 @@ func runInitConfig(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg := gatherConfigInteractively()
-	
+
 	if err := writeConfigTemplate(configPath, cfg); err != nil {
 		return fmt.Errorf("failed to write configuration file: %w", err)
 	}

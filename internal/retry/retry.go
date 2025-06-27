@@ -14,20 +14,20 @@ type Operation func() error
 
 func WithRetry(operation Operation, config RetryConfig) error {
 	var lastErr error
-	
+
 	for attempt := 0; attempt <= config.MaxRetries; attempt++ {
 		err := operation()
 		if err == nil {
 			return nil
 		}
-		
+
 		lastErr = err
-		
+
 		if attempt < config.MaxRetries {
 			time.Sleep(config.Delay)
 		}
 	}
-	
+
 	return fmt.Errorf("operation failed after %d attempts: %w", config.MaxRetries+1, lastErr)
 }
 

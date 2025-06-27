@@ -44,7 +44,7 @@ type Logger struct {
 
 func NewLogger(levelStr, filePath string, verbose bool) (*Logger, error) {
 	level := parseLogLevel(levelStr)
-	
+
 	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
 		return nil, fmt.Errorf("failed to create log directory: %w", err)
 	}
@@ -95,9 +95,9 @@ func (l *Logger) log(level LogLevel, format string, args ...interface{}) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	levelName := logLevelNames[level]
 	message := fmt.Sprintf(format, args...)
-	
+
 	logEntry := fmt.Sprintf("[%s] [%s] %s", timestamp, levelName, message)
-	
+
 	if l.fileLogger != nil {
 		l.fileLogger.Println(logEntry)
 	}
@@ -138,7 +138,7 @@ func (l *Logger) LogSyncResult(filesAdded, filesModified, filesDeleted int, comm
 	if filesAdded+filesModified+filesDeleted == 0 {
 		l.Info("Sync completed - no changes detected")
 	} else {
-		l.Info("Sync completed - Files: +%d ~%d -%d, Commit: %s", 
+		l.Info("Sync completed - Files: +%d ~%d -%d, Commit: %s",
 			filesAdded, filesModified, filesDeleted, commitHash[:8])
 	}
 }
@@ -147,7 +147,7 @@ func (l *Logger) LogFixupResult(filesModified int, commitHash string) {
 	if filesModified == 0 {
 		l.Info("Fixup completed - no changes to commit")
 	} else {
-		l.Info("Fixup completed - %d files modified, Commit: %s", 
+		l.Info("Fixup completed - %d files modified, Commit: %s",
 			filesModified, commitHash[:8])
 	}
 }

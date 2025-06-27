@@ -89,7 +89,7 @@ func runInitVHDX(cmd *cobra.Command, args []string) error {
 	}()
 
 	opsRepoPath := filepath.Join(cfg.MountPoint, "ops-repo")
-	
+
 	if verbose {
 		fmt.Printf("Step 3: Cloning repository to: %s\n", opsRepoPath)
 	}
@@ -107,7 +107,7 @@ func runInitVHDX(cmd *cobra.Command, args []string) error {
 	fmt.Printf("✓ VHDX initialization completed successfully\n")
 	fmt.Printf("  VHDX File: %s\n", cfg.VHDXPath)
 	fmt.Printf("  Ops Repository will be available at: %s when mounted\n", opsRepoPath)
-	
+
 	return nil
 }
 
@@ -181,7 +181,7 @@ func getOriginalRemoteUrl(gitExecutable string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get remote URL: %w", err)
 	}
-	
+
 	return strings.TrimSpace(string(output)), nil
 }
 
@@ -191,6 +191,6 @@ func getCurrentBranch(gitExecutable string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get current branch: %w", err)
 	}
-	
+
 	return strings.TrimSpace(string(output)), nil
 }

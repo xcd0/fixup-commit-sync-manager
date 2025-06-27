@@ -188,7 +188,7 @@ func (f *FixupManager) gitFixupCommit(baseCommit string) (string, error) {
 	commitMsg := f.generateFixupMessage(baseCommit)
 
 	args := []string{"commit", "--fixup", fixupTarget, "-m", commitMsg}
-	
+
 	if f.cfg.AuthorName != "" && f.cfg.AuthorEmail != "" {
 		author := fmt.Sprintf("%s <%s>", f.cfg.AuthorName, f.cfg.AuthorEmail)
 		args = append(args, "--author", author)
@@ -213,7 +213,7 @@ func (f *FixupManager) gitRebaseAutosquash() error {
 	cmd := exec.Command(f.cfg.GitExecutable, "rebase", "--autosquash", "--interactive", baseCommit)
 	cmd.Dir = f.cfg.OpsRepoPath
 	cmd.Env = append(os.Environ(), "GIT_EDITOR=true")
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("git rebase autosquash failed: %w, output: %s", err, string(output))
@@ -234,13 +234,13 @@ func (f *FixupManager) getLastCommitHash() (string, error) {
 
 func (f *FixupManager) generateFixupMessage(baseCommit string) string {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	
+
 	message := f.cfg.FixupMsgPrefix + "Automated fixup"
 	if baseCommit != "" {
 		message += fmt.Sprintf(" for %s", baseCommit[:8])
 	}
 	message += fmt.Sprintf(" @ %s", timestamp)
-	
+
 	return message
 }
 
@@ -284,9 +284,9 @@ func (f *FixupManager) RunContinuousFixup() error {
 				continue
 			}
 
-			fmt.Printf("[%s] ✓ Fixup completed - %d files modified", 
+			fmt.Printf("[%s] ✓ Fixup completed - %d files modified",
 				time.Now().Format("15:04:05"), result.FilesModified)
-			
+
 			if result.FixupCommitHash != "" {
 				fmt.Printf(" Commit: %s", result.FixupCommitHash[:8])
 			}

@@ -182,10 +182,10 @@ func runRollbackSnapshot(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("⚠️  WARNING: This will replace the current VHDX with snapshot '%s'\n", snapshotName)
 	fmt.Print("Are you sure you want to continue? (yes/no): ")
-	
+
 	var response string
 	fmt.Scanln(&response)
-	
+
 	if strings.ToLower(response) != "yes" && strings.ToLower(response) != "y" {
 		fmt.Println("Rollback cancelled")
 		return nil
