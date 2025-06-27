@@ -335,8 +335,23 @@ func initializeVhdx(cfg *Config, args *RunArgs) error {
 
 	log.Println("VHDX を初期化しています...")
 	
-	// VHDX作成処理（簡易実装）。
-	log.Printf("VHDX作成: %s (サイズ: %s)", cfg.VhdxPath, cfg.VhdxSize)
+	// VHDXサイズのデフォルト値設定。
+	vhdxSize := cfg.VhdxSize
+	if vhdxSize == "" {
+		vhdxSize = "10GB"
+	}
+	
+	// 実際のVHDXマネージャーを使用してVHDX作成。
+	vhdxManager := vhdx.NewVHDXManager(cfg.VhdxPath, cfg.MountPoint, vhdxSize, cfg.EncryptionEnabled)
+	
+	log.Printf("VHDX作成: %s (サイズ: %s)", cfg.VhdxPath, vhdxSize)
+	
+	// VHDX作成実行。
+	if err := vhdxManager.CreateVHDX(); err != nil {
+		log.Printf("警告: VHDX作成に失敗しました: %v", err)
+		log.Println("VHDX機能なしで続行します")
+		return nil // エラーを返さずに続行
+	}
 	
 	log.Println("VHDX 初期化が完了しました")
 	return nil
@@ -350,14 +365,28 @@ func mountVhdx(cfg *Config, args *RunArgs) error {
 
 	log.Println("VHDX をマウントしています...")
 	
+	// VHDXサイズのデフォルト値設定。
+	vhdxSize := cfg.VhdxSize
+	if vhdxSize == "" {
+		vhdxSize = "10GB"
+	}
+	
 	// 実際のVHDXマネージャーを使用してマウント。
-	vhdxManager := vhdx.NewVHDXManager(cfg.VhdxPath, cfg.MountPoint, cfg.VhdxSize, cfg.EncryptionEnabled)
+	vhdxManager := vhdx.NewVHDXManager(cfg.VhdxPath, cfg.MountPoint, vhdxSize, cfg.EncryptionEnabled)
 	
 	// VHDXファイルが存在するかチェック。
 	if _, err := os.Stat(cfg.VhdxPath); os.IsNotExist(err) {
 		log.Printf("警告: VHDXファイルが見つかりません: %s", cfg.VhdxPath)
-		log.Println("VHDX機能をスキップして、ローカルファイルシステムを使用します")
-		return nil
+		log.Println("VHDXファイルの作成を試行します...")
+		
+		// VHDX作成を試行。
+		if createErr := vhdxManager.CreateVHDX(); createErr != nil {
+			log.Printf("警告: VHDX作成に失敗しました: %v", createErr)
+			log.Println("VHDX機能をスキップして、ローカルファイルシステムを使用します")
+			return nil
+		}
+		
+		log.Printf("VHDXファイルを作成しました: %s", cfg.VhdxPath)
 	}
 	
 	// VHDXマウント実行。
