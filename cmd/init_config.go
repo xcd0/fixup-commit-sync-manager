@@ -56,24 +56,24 @@ func gatherConfigInteractivelyWithWorkDir(workDir, defaultLogPath string) *confi
 	reader := bufio.NewReader(os.Stdin)
 	cfg := config.DefaultConfig()
 
-	fmt.Println("=== FixupCommitSyncManager 設定ウィザード ===")
-	fmt.Println("必要な設定を対話的に入力してください。")
+	fmt.Println("    === FixupCommitSyncManager 設定ウィザード ===")
+	fmt.Println("    必要な設定を対話的に入力してください。")
 	fmt.Println()
 
 	// Devリポジトリパス（必須）
-	fmt.Println("【Devリポジトリ設定】")
-	fmt.Println("同期元となるDevリポジトリのローカルパスを指定してください。")
-	fmt.Print("Devリポジトリパス（必須）: ")
+	fmt.Println("    【Devリポジトリ設定】")
+	fmt.Println("    同期元となるDevリポジトリのローカルパスを指定してください。")
+	fmt.Print("    Devリポジトリパス（必須）: ")
 	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
 		cfg.DevRepoPath = strings.TrimSpace(input)
 	}
 
 	// VHDXマウントポイント（必須）
 	fmt.Println()
-	fmt.Println("【VHDX設定】")
-	fmt.Println("VHDXファイルをマウントするドライブレターを指定してください。")
-	fmt.Println("例: Q (Q:ドライブとしてマウント)")
-	fmt.Print("VHDXマウントポイント（必須） [X]: ")
+	fmt.Println("    【VHDX設定】")
+	fmt.Println("    VHDXファイルをマウントするドライブレターを指定してください。")
+	fmt.Println("    例: Q (Q:ドライブとしてマウント)")
+	fmt.Print("    VHDXマウントポイント（必須） [X]: ")
 	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
 		mountPoint := strings.TrimSpace(input)
 		if !strings.HasSuffix(mountPoint, ":") {
@@ -88,48 +88,48 @@ func gatherConfigInteractivelyWithWorkDir(workDir, defaultLogPath string) *confi
 	if cfg.DevRepoPath != "" {
 		devBaseName := filepath.Base(cfg.DevRepoPath)
 		cfg.OpsRepoPath = filepath.Join(cfg.MountPoint, devBaseName)
-		fmt.Printf("Opsリポジトリパス（自動生成）: %s\n", cfg.OpsRepoPath)
+		fmt.Printf("    Opsリポジトリパス（自動生成）: %s\n", cfg.OpsRepoPath)
 	}
 
 	// VHDXサイズ
-	fmt.Printf("VHDXファイルサイズ [%s]: ", cfg.VHDXSize)
+	fmt.Printf("    VHDXファイルサイズ [%s]: ", cfg.VHDXSize)
 	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
 		cfg.VHDXSize = strings.TrimSpace(input)
 	}
 
 	// 同期間隔
 	fmt.Println()
-	fmt.Println("【同期設定】")
-	fmt.Println("ファイル同期の実行間隔を指定してください。（例: 5m, 30s, 1h）")
-	fmt.Printf("同期間隔 [%s]: ", cfg.SyncInterval)
+	fmt.Println("    【同期設定】")
+	fmt.Println("    ファイル同期の実行間隔を指定してください。（例: 5m, 30s, 1h）")
+	fmt.Printf("    同期間隔 [%s]: ", cfg.SyncInterval)
 	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
 		cfg.SyncInterval = strings.TrimSpace(input)
 	}
 
 	// Fixup間隔
-	fmt.Println("Fixupコミットの実行間隔を指定してください。（例: 1h, 30m）")
-	fmt.Printf("Fixup間隔 [%s]: ", cfg.FixupInterval)
+	fmt.Println("    Fixupコミットの実行間隔を指定してください。（例: 1h, 30m）")
+	fmt.Printf("    Fixup間隔 [%s]: ", cfg.FixupInterval)
 	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
 		cfg.FixupInterval = strings.TrimSpace(input)
 	}
 
 	// ログファイルパス
 	fmt.Println()
-	fmt.Println("【ログ設定】")
-	fmt.Println("ログファイルの出力先を指定してください。")
+	fmt.Println("    【ログ設定】")
+	fmt.Println("    ログファイルの出力先を指定してください。")
 	if defaultLogPath != "" {
 		cfg.LogFilePath = defaultLogPath
 	}
-	fmt.Printf("ログファイルパス [%s]: ", cfg.LogFilePath)
+	fmt.Printf("    ログファイルパス [%s]: ", cfg.LogFilePath)
 	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
 		cfg.LogFilePath = strings.TrimSpace(input)
 	}
 
 	// VHDX暗号化
 	fmt.Println()
-	fmt.Println("【セキュリティ設定】")
-	fmt.Println("VHDXファイルの暗号化を有効にしますか？")
-	fmt.Print("VHDX暗号化を有効にする？ (y/N): ")
+	fmt.Println("    【セキュリティ設定】")
+	fmt.Println("    VHDXファイルの暗号化を有効にしますか？")
+	fmt.Print("    VHDX暗号化を有効にする？ (y/N): ")
 	if input, _ := reader.ReadString('\n'); strings.ToLower(strings.TrimSpace(input)) == "y" {
 		cfg.EncryptionEnabled = true
 	}
@@ -145,11 +145,11 @@ func gatherConfigInteractivelyWithWorkDir(workDir, defaultLogPath string) *confi
 // runInitConfigImproved は改善された設定ファイル生成を実行する。
 func runInitConfigImproved(configPath, workDir string) error {
 	if _, err := os.Stat(configPath); err == nil {
-		fmt.Printf("設定ファイル %s が既に存在します。上書きしますか？ (y/N): ", configPath)
+		fmt.Printf("    設定ファイル %s が既に存在します。上書きしますか？ (y/N): ", configPath)
 		reader := bufio.NewReader(os.Stdin)
 		response, _ := reader.ReadString('\n')
 		if strings.ToLower(strings.TrimSpace(response)) != "y" {
-			fmt.Println("設定ファイルの作成をキャンセルしました。")
+			fmt.Println("    設定ファイルの作成をキャンセルしました。")
 			return nil
 		}
 	}
@@ -166,8 +166,8 @@ func runInitConfigImproved(configPath, workDir string) error {
 		return fmt.Errorf("設定ファイルの書き込みに失敗しました: %w", err)
 	}
 
-	fmt.Printf("\n設定ファイルを作成しました: %s\n", configPath)
-	fmt.Println("必要に応じて設定ファイルを確認・編集してください。")
+	fmt.Printf("\n    設定ファイルを作成しました: %s\n", configPath)
+	fmt.Println("    必要に応じて設定ファイルを確認・編集してください。")
 	return nil
 }
 

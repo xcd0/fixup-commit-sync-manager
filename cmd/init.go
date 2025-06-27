@@ -67,16 +67,16 @@ func runInit() error {
 	}
 
 	// 完了メッセージ。
-	fmt.Printf("\n=== セットアップ完了 ===\n")
-	fmt.Printf("作業ディレクトリ: %s\n", workDir)
-	fmt.Printf("実行ファイル: %s\n", filepath.Join(workDir, "fixup-commit-sync-manager.exe"))
-	fmt.Printf("VHDXファイル: %s\n", vhdxPath)
-	fmt.Printf("設定ファイル: %s\n", configPath)
+	fmt.Printf("\n    === セットアップ完了 ===\n")
+	fmt.Printf("    作業ディレクトリ: %s\n", workDir)
+	fmt.Printf("    実行ファイル: %s\n", filepath.Join(workDir, "fixup-commit-sync-manager.exe"))
+	fmt.Printf("    VHDXファイル: %s\n", vhdxPath)
+	fmt.Printf("    設定ファイル: %s\n", configPath)
 	fmt.Println()
-	fmt.Println("次の手順:")
-	fmt.Println("1. 設定ファイルを確認・編集してください")
-	fmt.Printf("2. VHDXをマウント: %s mount-vhdx\n", filepath.Join(workDir, "fixup-commit-sync-manager.exe"))
-	fmt.Printf("3. 同期開始: %s sync --continuous\n", filepath.Join(workDir, "fixup-commit-sync-manager.exe"))
+	fmt.Println("    次の手順:")
+	fmt.Println("    1. 設定ファイルを確認・編集してください")
+	fmt.Printf("    2. VHDXをマウント: %s mount-vhdx\n", filepath.Join(workDir, "fixup-commit-sync-manager.exe"))
+	fmt.Printf("    3. 同期開始: %s sync --continuous\n", filepath.Join(workDir, "fixup-commit-sync-manager.exe"))
 
 	return nil
 }
@@ -106,13 +106,13 @@ func promptWorkingDirectory() (string, error) {
 // createWorkingDirectory は作業ディレクトリを作成する。
 func createWorkingDirectory(workDir string) error {
 	if _, err := os.Stat(workDir); os.IsNotExist(err) {
-		fmt.Printf("作業ディレクトリを作成しています: %s\n", workDir)
+		fmt.Printf("    作業ディレクトリを作成しています: %s\n", workDir)
 		if err := os.MkdirAll(workDir, 0755); err != nil {
 			return err
 		}
-		fmt.Println("作業ディレクトリを作成しました。")
+		fmt.Println("    作業ディレクトリを作成しました。")
 	} else {
-		fmt.Printf("作業ディレクトリは既に存在します: %s\n", workDir)
+		fmt.Printf("    作業ディレクトリは既に存在します: %s\n", workDir)
 	}
 	return nil
 }
@@ -130,11 +130,11 @@ func copyExecutable(workDir string) error {
 
 	// 既に存在する場合はスキップ。
 	if _, err := os.Stat(targetPath); err == nil {
-		fmt.Printf("実行ファイルは既に存在します: %s\n", targetPath)
+		fmt.Printf("    実行ファイルは既に存在します: %s\n", targetPath)
 		return nil
 	}
 
-	fmt.Printf("実行ファイルをコピーしています: %s -> %s\n", execPath, targetPath)
+	fmt.Printf("    実行ファイルをコピーしています: %s -> %s\n", execPath, targetPath)
 
 	// ファイルをコピー。
 	input, err := os.ReadFile(execPath)
@@ -146,7 +146,7 @@ func copyExecutable(workDir string) error {
 		return err
 	}
 
-	fmt.Println("実行ファイルをコピーしました。")
+	fmt.Println("    実行ファイルをコピーしました。")
 	return nil
 }
 
@@ -154,11 +154,11 @@ func copyExecutable(workDir string) error {
 func createVHDXFile(vhdxPath string) error {
 	// 既に存在する場合はスキップ。
 	if _, err := os.Stat(vhdxPath); err == nil {
-		fmt.Printf("VHDXファイルは既に存在します: %s\n", vhdxPath)
+		fmt.Printf("    VHDXファイルは既に存在します: %s\n", vhdxPath)
 		return nil
 	}
 
-	fmt.Printf("VHDXファイルを作成しています: %s\n", vhdxPath)
+	fmt.Printf("    VHDXファイルを作成しています: %s\n", vhdxPath)
 
 	// Windowsの場合、diskpartまたはPowerShellでVHDXを作成。
 	// ここでは簡易的にダミーファイルを作成。
@@ -171,15 +171,15 @@ func createVHDXFile(vhdxPath string) error {
 	}
 	file.Close()
 
-	fmt.Println("VHDXファイルの準備が完了しました。")
-	fmt.Println("注意: 実際のVHDX初期化は後で行われます。")
+	fmt.Println("    VHDXファイルの準備が完了しました。")
+	fmt.Println("    注意: 実際のVHDX初期化は後で行われます。")
 	return nil
 }
 
 // generateInitialConfig は初期設定ファイルを生成する。
 func generateInitialConfig(workDir, configPath string) error {
-	fmt.Println("\n=== 設定ファイルの生成 ===")
-	fmt.Println("対話的に設定ファイルを作成します。")
+	fmt.Println("\n    === 設定ファイルの生成 ===")
+	fmt.Println("    対話的に設定ファイルを作成します。")
 	fmt.Println()
 
 	// 改善されたinit-configを呼び出す。
