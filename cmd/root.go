@@ -19,6 +19,7 @@ var rootCmd = &cobra.Command{
 - 包括的なログ記録とエラーハンドリング
 
 利用可能なサブコマンド:
+- init             : 初期セットアップ（作業ディレクトリ作成、VHDX作成、設定生成）
 - init-config      : 対話型ウィザードで設定ファイルを作成
 - validate-config  : 設定ファイルの構文と内容を検証
 - init-vhdx        : VHDX ファイルを初期化して Ops リポジトリをセットアップ
@@ -42,6 +43,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("dry-run", false, "実際の変更を行わずにプレビュー実行")
 	rootCmd.PersistentFlags().Bool("verbose", false, "詳細な出力を有効化")
 
+	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(NewInitConfigCmd())
 	rootCmd.AddCommand(NewValidateConfigCmd())
 	rootCmd.AddCommand(NewInitVHDXCmd())
