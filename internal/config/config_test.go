@@ -43,7 +43,6 @@ func TestLoadConfig(t *testing.T) {
   "opsRepoPath": "/path/to/ops",
   "syncInterval": "10m",
   "fixupInterval": "2h",
-  "targetBranch": "test-branch",
   "includeExtensions": [".cpp", ".h"],
   "verbose": true
 }`
@@ -70,9 +69,7 @@ func TestLoadConfig(t *testing.T) {
 		t.Errorf("Expected sync interval '10m', got '%s'", cfg.SyncInterval)
 	}
 
-	if cfg.TargetBranch != "test-branch" {
-		t.Errorf("Expected target branch 'test-branch', got '%s'", cfg.TargetBranch)
-	}
+	// TargetBranchは動的ブランチ追従により削除されたため、チェックを削除。
 
 	if !cfg.Verbose {
 		t.Error("Expected verbose to be true")

@@ -28,8 +28,8 @@ type Config struct {
 	FixupInterval     string        `json:"fixupInterval"`
 	FixupMsgPrefix    string        `json:"fixupMessagePrefix"`
 	AutosquashEnabled bool          `json:"autosquashEnabled"`
-	TargetBranch      string        `json:"targetBranch"`
-	BaseBranch        string        `json:"baseBranch"`
+	// TargetBranch      string        `json:"targetBranch"`  // 削除: Dev側のカレントブランチを動的に使用
+	// BaseBranch        string        `json:"baseBranch"`   // 削除: 動的なブランチ追従により不要
 	MaxRetries        int           `json:"maxRetries"`
 	RetryDelay        string        `json:"retryDelay"`
 	LogLevel          string        `json:"logLevel"`
@@ -55,8 +55,8 @@ func DefaultConfig() *Config {
 		FixupInterval:     "1h",
 		FixupMsgPrefix:    "fixup! ",
 		AutosquashEnabled: true,
-		TargetBranch:      "sync-branch",
-		BaseBranch:        "main",
+		// TargetBranch:      "sync-branch",  // 削除: 動的ブランチ追従
+		// BaseBranch:        "main",        // 削除: 動的ブランチ追従
 		MaxRetries:        3,
 		RetryDelay:        "30s",
 		LogLevel:          "INFO",
