@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"fixup-commit-sync-manager/internal/vhdx"
+
 	"github.com/spf13/cobra"
 )
 
@@ -348,10 +350,32 @@ func mountVhdx(cfg *Config, args *RunArgs) error {
 
 	log.Println("VHDX をマウントしています...")
 	
-	// VHDX マウント処理（簡易実装）。
-	log.Printf("VHDX マウント: %s -> %s", cfg.VhdxPath, cfg.MountPoint)
+	// 実際のVHDXマネージャーを使用してマウント。
+	vhdxManager := vhdx.NewVHDXManager(cfg.VhdxPath, cfg.MountPoint, cfg.VhdxSize, cfg.EncryptionEnabled)
+	
+	// VHDXファイルが存在するかチェック。
+	if _, err := os.Stat(cfg.VhdxPath); os.IsNotExist(err) {
+		log.Printf("警告: VHDXファイルが見つかりません: %s", cfg.VhdxPath)
+		log.Println("VHDX機能をスキップして、ローカルファイルシステムを使用します")
+		return nil
+	}
+	
+	// VHDXマウント実行。
+	if err := vhdxManager.MountVHDX(); err != nil {
+		log.Printf("警告: VHDXマウントに失敗しました: %v", err)
+		log.Println("VHDX機能をスキップして、ローカルファイルシステムを使用します")
+		return nil
+	}
 	
 	log.Printf("VHDX マウントが完了しました: %s", cfg.MountPoint)
+	
+	// マウント状態を確認。
+	if _, err := os.Stat(cfg.MountPoint); os.IsNotExist(err) {
+		log.Printf("警告: マウントポイントにアクセスできません: %s", cfg.MountPoint)
+		log.Println("VHDX機能をスキップして、ローカルファイルシステムを使用します")
+		return nil
+	}
+	
 	return nil
 }
 
@@ -362,9 +386,15 @@ func performInitialSync(cfg *Config, args *RunArgs) error {
 	// Ops リポジトリが存在しない場合は Dev からクローン。
 	opsRepoPath := cfg.OpsRepoPath
 	if cfg.VhdxPath != "" && cfg.MountPoint != "" {
-		// Windowsドライブレター形式のマウントポイントに対応（例: "Q:" → "Q:\\devBaseName"）
-		devBaseName := filepath.Base(cfg.DevRepoPath)
-		opsRepoPath, _ = filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
+		// VHDXマウントポイントが実際に利用可能かチェック。
+		if _, err := os.Stat(cfg.MountPoint); err == nil {
+			// Windowsドライブレター形式のマウントポイントに対応（例: "Q:" → "Q:\\devBaseName"）
+			devBaseName := filepath.Base(cfg.DevRepoPath)
+			opsRepoPath, _ = filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
+			log.Printf("VHDXマウントポイントを使用: %s", opsRepoPath)
+		} else {
+			log.Printf("VHDXマウントポイントが利用できないため、設定のopsRepoPathを使用: %s", cfg.OpsRepoPath)
+		}
 	}
 
 	if _, err := os.Stat(filepath.Join(opsRepoPath, ".git")); os.IsNotExist(err) {
@@ -390,6 +420,7 @@ func performInitialSync(cfg *Config, args *RunArgs) error {
 func cloneRepositorySimple(srcPath, destPath string) error {
 	// ディレクトリ作成（ドライブルートの場合は作成をスキップ）。
 	parentDir := filepath.Dir(destPath)
+	
 	if parentDir != "." && !isWindowsDriveRoot(parentDir) {
 		if err := os.MkdirAll(parentDir, 0755); err != nil {
 			return fmt.Errorf("ディレクトリ作成エラー: %v", err)
@@ -473,9 +504,12 @@ func runPeriodicExecution(ctx context.Context, cfg *Config, args *RunArgs) error
 func executePeriodicSync(cfg *Config, args *RunArgs) error {
 	opsRepoPath := cfg.OpsRepoPath
 	if cfg.VhdxPath != "" && cfg.MountPoint != "" {
-		// Windowsドライブレター形式のマウントポイントに対応（例: "Q:" → "Q:\\devBaseName"）
-		devBaseName := filepath.Base(cfg.DevRepoPath)
-		opsRepoPath, _ = filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
+		// VHDXマウントポイントが実際に利用可能かチェック。
+		if _, err := os.Stat(cfg.MountPoint); err == nil {
+			// Windowsドライブレター形式のマウントポイントに対応（例: "Q:" → "Q:\\devBaseName"）
+			devBaseName := filepath.Base(cfg.DevRepoPath)
+			opsRepoPath, _ = filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
+		}
 	}
 
 	log.Printf("定期同期: %s -> %s", cfg.DevRepoPath, opsRepoPath)
@@ -493,9 +527,12 @@ func executePeriodicSync(cfg *Config, args *RunArgs) error {
 func executePeriodicFixup(cfg *Config, args *RunArgs) error {
 	opsRepoPath := cfg.OpsRepoPath
 	if cfg.VhdxPath != "" && cfg.MountPoint != "" {
-		// Windowsドライブレター形式のマウントポイントに対応（例: "Q:" → "Q:\\devBaseName"）
-		devBaseName := filepath.Base(cfg.DevRepoPath)
-		opsRepoPath, _ = filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
+		// VHDXマウントポイントが実際に利用可能かチェック。
+		if _, err := os.Stat(cfg.MountPoint); err == nil {
+			// Windowsドライブレター形式のマウントポイントに対応（例: "Q:" → "Q:\\devBaseName"）
+			devBaseName := filepath.Base(cfg.DevRepoPath)
+			opsRepoPath, _ = filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
+		}
 	}
 
 	log.Printf("fixup処理を実行します: %s", opsRepoPath)
