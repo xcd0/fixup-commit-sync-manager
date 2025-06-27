@@ -343,6 +343,45 @@ func TestCloneRepositorySimple(t *testing.T) {
 			t.Errorf("Parent directory should be created: %s", parentDir)
 		}
 	})
+	
+	t.Run("clone to Windows drive root", func(t *testing.T) {
+		srcPath := "/source/repo"
+		destPath := "Q:/my-repo" // Windowsドライブルート下
+		
+		// Windowsドライブルートの場合でもエラーが発生しないことを確認。
+		err := cloneRepositorySimple(srcPath, destPath)
+		if err != nil {
+			t.Errorf("cloneRepositorySimple() with Windows drive root failed: %v", err)
+		}
+	})
+}
+
+// TestIsWindowsDriveRoot はisWindowsDriveRoot関数のテスト。
+func TestIsWindowsDriveRoot(t *testing.T) {
+	tests := []struct {
+		path     string
+		expected bool
+	}{
+		{"Q:", true},
+		{"X:", true},
+		{"Z:", true},
+		{"C:", true},
+		{"Q:/", false},
+		{"X:/path", false},
+		{"/tmp", false},
+		{"./path", false},
+		{"Q", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			result := isWindowsDriveRoot(tt.path)
+			if result != tt.expected {
+				t.Errorf("isWindowsDriveRoot(%q) = %v, want %v", tt.path, result, tt.expected)
+			}
+		})
+	}
 }
 
 // TestRunArgsValidation はRunArgs構造体のテスト。

@@ -388,9 +388,12 @@ func performInitialSync(cfg *Config, args *RunArgs) error {
 
 // cloneRepositorySimple はリポジトリをクローン。
 func cloneRepositorySimple(srcPath, destPath string) error {
-	// ディレクトリ作成。
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-		return fmt.Errorf("ディレクトリ作成エラー: %v", err)
+	// ディレクトリ作成（ドライブルートの場合は作成をスキップ）。
+	parentDir := filepath.Dir(destPath)
+	if parentDir != "." && !isWindowsDriveRoot(parentDir) {
+		if err := os.MkdirAll(parentDir, 0755); err != nil {
+			return fmt.Errorf("ディレクトリ作成エラー: %v", err)
+		}
 	}
 
 	// git clone 実行 (ローカルクローン)。
@@ -398,6 +401,11 @@ func cloneRepositorySimple(srcPath, destPath string) error {
 	log.Printf("クローン実行: %s", cmd)
 	
 	return nil
+}
+
+// isWindowsDriveRoot はWindowsドライブルート（例: "Q:"）かどうかを判定する。
+func isWindowsDriveRoot(path string) bool {
+	return len(path) == 2 && path[1] == ':'
 }
 
 // createInitialSnapshot は初回スナップショットを作成。
