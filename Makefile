@@ -49,7 +49,7 @@ endif
 # メインターゲット
 # ============================================================================
 .PHONY: all help build clean release test lint fmt vet install deps update-deps
-.PHONY: cross-compile run
+.PHONY: cross-compile run get-upx
 .DEFAULT_GOAL := help
 
 all: help
@@ -67,17 +67,37 @@ build: ## デバッグビルド。
 	go build $(FLAG_DEBUG) -o $(BIN_DIR)/$(BIN)$(EXE_EXT) .
 	@echo "ビルド完了: $(BIN_DIR)/$(BIN)$(EXE_EXT)"
 
-release-win: ## Windows リリースビルド。
+release-win: get-upx ## Windows リリースビルド + UPX圧縮。
 	@echo "Windows リリースビルドを実行中..."
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build $(FLAG_RELEASE) -o $(BIN_DIR)/$(BIN).exe .
+	@if [ -f "upx$(EXE_EXT)" ] || command -v upx >/dev/null 2>&1; then \
+		echo "UPXで圧縮中..."; \
+		if [ -f "upx$(EXE_EXT)" ]; then \
+			./upx$(EXE_EXT) --lzma $(BIN_DIR)/$(BIN).exe || echo "UPX圧縮に失敗しましたが続行します。"; \
+		else \
+			upx --lzma $(BIN_DIR)/$(BIN).exe || echo "UPX圧縮に失敗しましたが続行します。"; \
+		fi; \
+	else \
+		echo "UPXが見つかりません。圧縮をスキップします。"; \
+	fi
 	@echo "Windows リリースビルド完了: $(BIN_DIR)/$(BIN).exe"
 
-release-linux: ## Linux リリースビルド。
+release-linux: get-upx ## Linux リリースビルド + UPX圧縮。
 	@echo "Linux リリースビルドを実行中..."
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(FLAG_RELEASE) -o $(BIN_DIR)/$(BIN) .
 	@chmod +x $(BIN_DIR)/$(BIN)
+	@if [ -f "upx$(EXE_EXT)" ] || command -v upx >/dev/null 2>&1; then \
+		echo "UPXで圧縮中..."; \
+		if [ -f "upx$(EXE_EXT)" ]; then \
+			./upx$(EXE_EXT) --lzma $(BIN_DIR)/$(BIN) || echo "UPX圧縮に失敗しましたが続行します。"; \
+		else \
+			upx --lzma $(BIN_DIR)/$(BIN) || echo "UPX圧縮に失敗しましたが続行します。"; \
+		fi; \
+	else \
+		echo "UPXが見つかりません。圧縮をスキップします。"; \
+	fi
 	@echo "Linux リリースビルド完了: $(BIN_DIR)/$(BIN)"
 
 release: clean release-win release-linux ## 両OS用リリース一括ビルド。
@@ -213,6 +233,33 @@ debug: ## デバッガでビルド・実行（要: dlv）。
 mod-graph: ## モジュール依存関係をグラフ表示。
 	@echo "モジュール依存関係:"
 	go mod graph
+
+# ============================================================================
+# 外部ツール取得
+# ============================================================================
+get-upx: ## UPXを取得（GitHub API経由）。
+	@if [ ! -f "upx$(EXE_EXT)" ] && ! command -v upx >/dev/null 2>&1; then \
+		echo "UPXをダウンロード中..."; \
+		if [ "$(OS)" = "windows" ]; then \
+			UPX_ASSET="win64.zip"; \
+		else \
+			UPX_ASSET="amd64_linux.tar.xz"; \
+		fi; \
+		UPX_URL=$$(curl -s https://api.github.com/repos/upx/upx/releases/latest \
+			| grep -o "\"browser_download_url\":\"[^\"]*$$UPX_ASSET\"" \
+			| cut -d'"' -f4); \
+		curl -L "$$UPX_URL" -o upx_pkg; \
+		if [ "$(OS)" = "windows" ]; then \
+			unzip -jo upx_pkg "upx*/upx.exe"; \
+		else \
+			tar -xf upx_pkg --strip-components=1 "*/upx"; \
+			chmod +x ./upx; \
+		fi; \
+		rm -f upx_pkg; \
+		echo "UPXダウンロード完了。"; \
+	else \
+		echo "UPXは既にインストールされています。"; \
+	fi
 
 # ============================================================================
 # セキュリティ関連
