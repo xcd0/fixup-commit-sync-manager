@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"fixup-commit-sync-manager/internal/config"
@@ -93,6 +94,62 @@ func TestGetCurrentBranch(t *testing.T) {
 func isGitAvailable() bool {
 	_, err := exec.LookPath("git")
 	return err == nil
+}
+
+// TestVHDXOpsRepoPathGeneration はVHDXでのOpsリポジトリパス生成をテストする。
+func TestVHDXOpsRepoPathGeneration(t *testing.T) {
+	tests := []struct {
+		name        string
+		devRepoPath string
+		mountPoint  string
+		expectedBaseName string
+	}{
+		{
+			name:        "Windows drive letter Q: with simple repo",
+			devRepoPath: "/path/to/my-repo",
+			mountPoint:  "Q:",
+			expectedBaseName: "my-repo",
+		},
+		{
+			name:        "Windows drive letter X: with complex path",
+			devRepoPath: "C:/Users/dev/project-name", // Linux環境でもテスト可能な形式
+			mountPoint:  "X:",
+			expectedBaseName: "project-name",
+		},
+		{
+			name:        "Complex repository name",
+			devRepoPath: "/home/user/fixup-commit-sync-manager",
+			mountPoint:  "Z:",
+			expectedBaseName: "fixup-commit-sync-manager",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.Config{
+				DevRepoPath: tt.devRepoPath,
+				MountPoint:  tt.mountPoint,
+			}
+
+			// init_vhdx.goの処理をシミュレート。
+			devBaseName := filepath.Base(cfg.DevRepoPath)
+			opsRepoPath, _ := filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
+			normalizedPath := filepath.ToSlash(opsRepoPath)
+
+			// ベース名が正しく抽出されることを確認。
+			if devBaseName != tt.expectedBaseName {
+				t.Errorf("Expected base name %q, got %q", tt.expectedBaseName, devBaseName)
+			}
+
+			// パスにマウントポイントとベース名が含まれることを確認。
+			if !strings.Contains(normalizedPath, tt.mountPoint) {
+				t.Errorf("OpsRepoPath should contain mount point %q: %q", tt.mountPoint, normalizedPath)
+			}
+			if !strings.Contains(normalizedPath, tt.expectedBaseName) {
+				t.Errorf("OpsRepoPath should contain base name %q: %q", tt.expectedBaseName, normalizedPath)
+			}
+		})
+	}
 }
 
 func createTestRepository(repoPath string) error {

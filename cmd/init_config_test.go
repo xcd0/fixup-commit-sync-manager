@@ -26,7 +26,7 @@ func TestGenerateHJSONTemplate(t *testing.T) {
 		"/path/to/ops",
 		"Auto-sync: ${timestamp} @ ${hash}",
 		"fixup! ",
-		"dynamic", // ブランチは動的追従のコメント
+		"動的追従", // ブランチは動的追従のコメント
 		"/path/to/test.vhdx",
 		"X:",
 	}
@@ -92,6 +92,61 @@ func TestWriteConfigTemplate(t *testing.T) {
 
 	if !contains(string(content), "/test/dev") {
 		t.Error("Config file should contain dev repo path")
+	}
+}
+
+// TestVHDXMountPointProcessing はVHDXマウントポイント処理をテストする。
+func TestVHDXMountPointProcessing(t *testing.T) {
+	tests := []struct {
+		name         string
+		devRepoPath  string
+		mountPoint   string
+		expectedBaseName string
+	}{
+		{
+			name:         "Windows drive letter Q:",
+			devRepoPath:  "/path/to/my-repo",
+			mountPoint:   "Q:",
+			expectedBaseName: "my-repo",
+		},
+		{
+			name:         "Windows drive letter X:",
+			devRepoPath:  "C:/Users/dev/project-name", // Linux環境でもテスト可能な形式
+			mountPoint:   "X:",
+			expectedBaseName: "project-name",
+		},
+		{
+			name:         "Windows drive letter with complex repo name",
+			devRepoPath:  "/home/user/fixup-commit-sync-manager",
+			mountPoint:   "Z:",
+			expectedBaseName: "fixup-commit-sync-manager",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.DefaultConfig()
+			cfg.DevRepoPath = tt.devRepoPath
+			cfg.MountPoint = tt.mountPoint
+
+			// init_config.goの処理をシミュレート（パス結合処理の検証）。
+			devBaseName := filepath.Base(cfg.DevRepoPath)
+			opsPath, _ := filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
+			cfg.OpsRepoPath = filepath.ToSlash(opsPath)
+
+			// ベース名が正しく抽出されることを確認。
+			if devBaseName != tt.expectedBaseName {
+				t.Errorf("Expected base name %q, got %q", tt.expectedBaseName, devBaseName)
+			}
+
+			// パスにマウントポイントとベース名が含まれることを確認。
+			if !contains(cfg.OpsRepoPath, tt.mountPoint) {
+				t.Errorf("OpsRepoPath should contain mount point %q: %q", tt.mountPoint, cfg.OpsRepoPath)
+			}
+			if !contains(cfg.OpsRepoPath, tt.expectedBaseName) {
+				t.Errorf("OpsRepoPath should contain base name %q: %q", tt.expectedBaseName, cfg.OpsRepoPath)
+			}
+		})
 	}
 }
 

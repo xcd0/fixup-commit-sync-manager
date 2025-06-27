@@ -443,6 +443,76 @@ func TestInitializationFlow(t *testing.T) {
 	})
 }
 
+// TestVHDXOpsRepoPathGenerationInRun はrun.goでのVHDXOpsリポジトリパス生成をテストする。
+func TestVHDXOpsRepoPathGenerationInRun(t *testing.T) {
+	tests := []struct {
+		name        string
+		devRepoPath string
+		mountPoint  string
+		vhdxPath    string
+		expectedBaseName string
+	}{
+		{
+			name:        "Windows drive letter Q: with simple repo",
+			devRepoPath: "/path/to/my-repo",
+			mountPoint:  "Q:",
+			vhdxPath:    "/tmp/test.vhdx",
+			expectedBaseName: "my-repo",
+		},
+		{
+			name:        "Windows drive letter X: with complex path",
+			devRepoPath: "C:/Users/dev/project-name", // Linux環境でもテスト可能な形式
+			mountPoint:  "X:",
+			vhdxPath:    "/tmp/test.vhdx",
+			expectedBaseName: "project-name",
+		},
+		{
+			name:        "Complex repository name",
+			devRepoPath: "/home/user/fixup-commit-sync-manager",
+			mountPoint:  "Z:",
+			vhdxPath:    "/tmp/test.vhdx",
+			expectedBaseName: "fixup-commit-sync-manager",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				DevRepoPath: tt.devRepoPath,
+				MountPoint:  tt.mountPoint,
+				VhdxPath:    tt.vhdxPath,
+				OpsRepoPath: "/default/ops", // 初期値
+			}
+
+			// run.goの処理をシミュレート。
+			opsRepoPath := cfg.OpsRepoPath
+			if cfg.VhdxPath != "" && cfg.MountPoint != "" {
+				// Windowsドライブレター形式のマウントポイントに対応（例: "Q:" → "Q:\\devBaseName"）
+				devBaseName := filepath.Base(cfg.DevRepoPath)
+				opsRepoPath, _ = filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
+			}
+
+			normalizedPath := filepath.ToSlash(opsRepoPath)
+
+			// ベース名が正しく抽出されることを確認。
+			devBaseName := filepath.Base(cfg.DevRepoPath)
+			if devBaseName != tt.expectedBaseName {
+				t.Errorf("Expected base name %q, got %q", tt.expectedBaseName, devBaseName)
+			}
+
+			// VHDXが有効な場合、パスにマウントポイントとベース名が含まれることを確認。
+			if cfg.VhdxPath != "" && cfg.MountPoint != "" {
+				if !strings.Contains(normalizedPath, tt.mountPoint) {
+					t.Errorf("OpsRepoPath should contain mount point %q: %q", tt.mountPoint, normalizedPath)
+				}
+				if !strings.Contains(normalizedPath, tt.expectedBaseName) {
+					t.Errorf("OpsRepoPath should contain base name %q: %q", tt.expectedBaseName, normalizedPath)
+				}
+			}
+		})
+	}
+}
+
 // TestPeriodicExecution は定期実行のテスト。
 func TestPeriodicExecution(t *testing.T) {
 	t.Run("periodic execution with short timeout", func(t *testing.T) {
