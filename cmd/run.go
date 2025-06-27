@@ -393,8 +393,19 @@ func performInitialSync(cfg *Config, args *RunArgs) error {
 			opsRepoPath, _ = filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
 			log.Printf("VHDXマウントポイントを使用: %s", opsRepoPath)
 		} else {
-			log.Printf("VHDXマウントポイントが利用できないため、設定のopsRepoPathを使用: %s", cfg.OpsRepoPath)
+			// VHDXマウントポイントが利用できない場合
+			if isVHDXPath(cfg.OpsRepoPath, cfg.MountPoint) {
+				// 設定のopsRepoPathもVHDXパスの場合、ローカルフォールバックパスを生成
+				opsRepoPath = generateLocalFallbackPath(cfg.DevRepoPath, cfg.OpsRepoPath)
+				log.Printf("VHDXマウントポイントが利用できないため、ローカルフォールバックパスを使用: %s", opsRepoPath)
+			} else {
+				log.Printf("VHDXマウントポイントが利用できないため、設定のopsRepoPathを使用: %s", cfg.OpsRepoPath)
+			}
 		}
+	} else if isVHDXPath(cfg.OpsRepoPath, cfg.MountPoint) {
+		// VHDX設定がないが、opsRepoPathがVHDXパスの場合もフォールバック
+		opsRepoPath = generateLocalFallbackPath(cfg.DevRepoPath, cfg.OpsRepoPath)
+		log.Printf("opsRepoPathがVHDXパスのため、ローカルフォールバックパスを使用: %s", opsRepoPath)
 	}
 
 	if _, err := os.Stat(filepath.Join(opsRepoPath, ".git")); os.IsNotExist(err) {
@@ -437,6 +448,31 @@ func cloneRepositorySimple(srcPath, destPath string) error {
 // isWindowsDriveRoot はWindowsドライブルート（例: "Q:"）かどうかを判定する。
 func isWindowsDriveRoot(path string) bool {
 	return len(path) == 2 && path[1] == ':'
+}
+
+// isVHDXPath はパスがVHDXマウントポイントを使用しているかを判定する。
+func isVHDXPath(path, mountPoint string) bool {
+	if mountPoint == "" {
+		return false
+	}
+	// パスがマウントポイントで始まるかチェック
+	return strings.HasPrefix(path, mountPoint)
+}
+
+// generateLocalFallbackPath はVHDXが利用できない場合のローカルフォールバックパスを生成する。
+func generateLocalFallbackPath(devRepoPath, originalOpsPath string) string {
+	// devRepoPathのベース名を取得
+	devBaseName := filepath.Base(devRepoPath)
+	
+	// カレントディレクトリまたは一時ディレクトリにopsリポジトリを配置
+	workingDir, err := os.Getwd()
+	if err != nil {
+		workingDir = os.TempDir()
+	}
+	
+	// "ops-" プレフィックスを付けてdevリポジトリと区別
+	fallbackPath := filepath.Join(workingDir, "ops-"+devBaseName)
+	return filepath.ToSlash(fallbackPath)
 }
 
 // createInitialSnapshot は初回スナップショットを作成。
@@ -509,7 +545,13 @@ func executePeriodicSync(cfg *Config, args *RunArgs) error {
 			// Windowsドライブレター形式のマウントポイントに対応（例: "Q:" → "Q:\\devBaseName"）
 			devBaseName := filepath.Base(cfg.DevRepoPath)
 			opsRepoPath, _ = filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
+		} else if isVHDXPath(cfg.OpsRepoPath, cfg.MountPoint) {
+			// 設定のopsRepoPathもVHDXパスの場合、ローカルフォールバックパスを生成
+			opsRepoPath = generateLocalFallbackPath(cfg.DevRepoPath, cfg.OpsRepoPath)
 		}
+	} else if isVHDXPath(cfg.OpsRepoPath, cfg.MountPoint) {
+		// VHDX設定がないが、opsRepoPathがVHDXパスの場合もフォールバック
+		opsRepoPath = generateLocalFallbackPath(cfg.DevRepoPath, cfg.OpsRepoPath)
 	}
 
 	log.Printf("定期同期: %s -> %s", cfg.DevRepoPath, opsRepoPath)
@@ -532,7 +574,13 @@ func executePeriodicFixup(cfg *Config, args *RunArgs) error {
 			// Windowsドライブレター形式のマウントポイントに対応（例: "Q:" → "Q:\\devBaseName"）
 			devBaseName := filepath.Base(cfg.DevRepoPath)
 			opsRepoPath, _ = filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
+		} else if isVHDXPath(cfg.OpsRepoPath, cfg.MountPoint) {
+			// 設定のopsRepoPathもVHDXパスの場合、ローカルフォールバックパスを生成
+			opsRepoPath = generateLocalFallbackPath(cfg.DevRepoPath, cfg.OpsRepoPath)
 		}
+	} else if isVHDXPath(cfg.OpsRepoPath, cfg.MountPoint) {
+		// VHDX設定がないが、opsRepoPathがVHDXパスの場合もフォールバック
+		opsRepoPath = generateLocalFallbackPath(cfg.DevRepoPath, cfg.OpsRepoPath)
 	}
 
 	log.Printf("fixup処理を実行します: %s", opsRepoPath)

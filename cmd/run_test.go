@@ -384,6 +384,78 @@ func TestIsWindowsDriveRoot(t *testing.T) {
 	}
 }
 
+// TestIsVHDXPath はisVHDXPath関数のテスト。
+func TestIsVHDXPath(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		mountPoint string
+		expected   bool
+	}{
+		{"VHDX path with Q:", "Q:/neco", "Q:", true},
+		{"VHDX path with Q: subdir", "Q:/neco/subdir", "Q:", true},
+		{"Non-VHDX path", "/tmp/neco", "Q:", false},
+		{"Empty mount point", "Q:/neco", "", false},
+		{"Different drive", "P:/neco", "Q:", false},
+		{"Partial match", "QQ:/neco", "Q:", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isVHDXPath(tt.path, tt.mountPoint)
+			if result != tt.expected {
+				t.Errorf("isVHDXPath(%q, %q) = %v, want %v", tt.path, tt.mountPoint, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestGenerateLocalFallbackPath はgenerateLocalFallbackPath関数のテスト。
+func TestGenerateLocalFallbackPath(t *testing.T) {
+	tests := []struct {
+		name           string
+		devRepoPath    string
+		originalOpsPath string
+		expectedSuffix string
+	}{
+		{
+			name:           "Simple repo name",
+			devRepoPath:    "P:/neco",
+			originalOpsPath: "Q:/neco",
+			expectedSuffix: "ops-neco",
+		},
+		{
+			name:           "Complex repo path",
+			devRepoPath:    "/home/user/my-project",
+			originalOpsPath: "Q:/my-project",
+			expectedSuffix: "ops-my-project",
+		},
+		{
+			name:           "Windows style path",
+			devRepoPath:    "C:/dev/project-name", // Linux環境でもテスト可能な形式
+			originalOpsPath: "X:/project-name",
+			expectedSuffix: "ops-project-name",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := generateLocalFallbackPath(tt.devRepoPath, tt.originalOpsPath)
+			
+			// 結果が期待するサフィックスで終わることを確認
+			if !strings.HasSuffix(result, tt.expectedSuffix) {
+				t.Errorf("generateLocalFallbackPath(%q, %q) = %q, should end with %q", 
+					tt.devRepoPath, tt.originalOpsPath, result, tt.expectedSuffix)
+			}
+			
+			// 結果が絶対パスまたは相対パスであることを確認
+			if result == "" {
+				t.Errorf("generateLocalFallbackPath should not return empty string")
+			}
+		})
+	}
+}
+
 // TestRunArgsValidation はRunArgs構造体のテスト。
 func TestRunArgsValidation(t *testing.T) {
 	args := &RunArgs{
