@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -14,6 +15,7 @@ type VHDXManager struct {
 	MountPoint string
 	Size       string
 	Encrypted  bool
+	handle     VirtualDisk // プラットフォーム固有のVHD handle
 }
 
 func NewVHDXManager(vhdxPath, mountPoint, size string, encrypted bool) *VHDXManager {
@@ -23,6 +25,25 @@ func NewVHDXManager(vhdxPath, mountPoint, size string, encrypted bool) *VHDXMana
 		Size:       size,
 		Encrypted:  encrypted,
 	}
+}
+
+// NewManager は既存のコンストラクタとの互換性を保つ。
+func NewManager(vhdxPath, mountPoint string) *VHDXManager {
+	return &VHDXManager{
+		VHDXPath:   vhdxPath,
+		MountPoint: mountPoint,
+		Size:       "10GB",
+		Encrypted:  false,
+	}
+}
+
+// Create はVHDXファイルを作成する。
+func (v *VHDXManager) Create(size string, encrypted bool) error {
+	if size != "" {
+		v.Size = size
+	}
+	v.Encrypted = encrypted
+	return v.CreateVHDX()
 }
 
 func (v *VHDXManager) CreateVHDX() error {
@@ -35,8 +56,21 @@ func (v *VHDXManager) CreateVHDX() error {
 		return fmt.Errorf("failed to create VHDX directory: %w", err)
 	}
 
+	// Windows環境でgo-winioを使用してVHDX作成。
+	if runtime.GOOS == "windows" {
+		return v.createVHDXWithGoWinio()
+	}
+
+	// Windows以外の環境では従来のdiskpart方式（互換性のため）。
+	return v.createVHDXWithDiskpart()
+}
+
+// createVHDXWithGoWinio の実装はプラットフォーム固有ファイルに移動。
+
+// createVHDXWithDiskpart は従来のdiskpart方式でVHDXを作成する。
+func (v *VHDXManager) createVHDXWithDiskpart() error {
 	diskpartScript := v.generateDiskpartScript()
-	scriptPath := filepath.Join(vhdxDir, "create_vhdx.txt")
+	scriptPath := filepath.Join(filepath.Dir(v.VHDXPath), "create_vhdx.txt")
 
 	if err := os.WriteFile(scriptPath, []byte(diskpartScript), 0644); err != nil {
 		return fmt.Errorf("failed to write diskpart script: %w", err)
@@ -52,11 +86,61 @@ func (v *VHDXManager) CreateVHDX() error {
 	return nil
 }
 
+// initializeAndFormatVHDX はVHDXを初期化してフォーマットする。
+func (v *VHDXManager) initializeAndFormatVHDX() error {
+	// VHDX作成後の初期化処理をPowerShellで実行。
+	// この部分は今後、go-winioの機能で置き換え可能。
+	script := fmt.Sprintf(`
+		$vhdxPath = "%s"
+		$mountPoint = "%s"
+		
+		# VHDXをアタッチ
+		$disk = Mount-VHD -Path $vhdxPath -PassThru | Get-Disk
+		
+		# パーティション初期化
+		$disk | Initialize-Disk -PartitionStyle GPT -PassThru |
+		New-Partition -AssignDriveLetter -UseMaximumSize |
+		Format-Volume -FileSystem NTFS -NewFileSystemLabel "VHDX" -Confirm:$false
+		
+		# 指定されたドライブレターに変更
+		$partition = Get-Partition -DiskNumber $disk.Number | Where-Object Type -eq 'Basic'
+		if ($partition) {
+			$partition | Set-Partition -NewDriveLetter (%s)
+		}
+	`, v.VHDXPath, v.MountPoint, strings.TrimSuffix(v.MountPoint, ":"))
+
+	cmd := exec.Command("powershell", "-Command", script)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to initialize VHDX: %w, output: %s", err, string(output))
+	}
+
+	return nil
+}
+
+// Mount はVHDXをマウントする。
+func (v *VHDXManager) Mount() error {
+	return v.MountVHDX()
+}
+
 func (v *VHDXManager) MountVHDX() error {
 	if v.isMounted() {
 		return fmt.Errorf("VHDX is already mounted at %s", v.MountPoint)
 	}
 
+	// Windows環境でgo-winioを使用してマウント。
+	if runtime.GOOS == "windows" {
+		return v.mountVHDXWithGoWinio()
+	}
+
+	// Windows以外の環境では従来のdiskpart方式（互換性のため）。
+	return v.mountVHDXWithDiskpart()
+}
+
+// mountVHDXWithGoWinio の実装はプラットフォーム固有ファイルに移動。
+
+// mountVHDXWithDiskpart は従来のdiskpart方式でマウントする。
+func (v *VHDXManager) mountVHDXWithDiskpart() error {
 	diskpartScript := fmt.Sprintf(`select vdisk file="%s"
 attach vdisk
 assign letter=%s
@@ -66,11 +150,49 @@ exit
 	return v.executeDiskpartScript(diskpartScript)
 }
 
+// assignDriveLetter はVHDXに指定されたドライブレターを割り当てる。
+func (v *VHDXManager) assignDriveLetter() error {
+	script := fmt.Sprintf(`
+		$vhdxPath = "%s"
+		$targetLetter = "%s"
+		
+		# VHDXに関連付けられたディスクを取得
+		$disk = Get-VHD -Path $vhdxPath | Get-Disk
+		if ($disk) {
+			$partition = Get-Partition -DiskNumber $disk.Number | Where-Object Type -eq 'Basic'
+			if ($partition -and $partition.DriveLetter -ne $targetLetter) {
+				$partition | Set-Partition -NewDriveLetter $targetLetter
+			}
+		}
+	`, v.VHDXPath, strings.TrimSuffix(v.MountPoint, ":"))
+
+	cmd := exec.Command("powershell", "-Command", script)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to assign drive letter: %w, output: %s", err, string(output))
+	}
+
+	return nil
+}
+
 func (v *VHDXManager) UnmountVHDX() error {
 	if !v.isMounted() {
 		return fmt.Errorf("VHDX is not mounted at %s", v.MountPoint)
 	}
 
+	// Windows環境でgo-winioを使用してアンマウント。
+	if runtime.GOOS == "windows" {
+		return v.unmountVHDXWithGoWinio()
+	}
+
+	// Windows以外の環境では従来のdiskpart方式（互換性のため）。
+	return v.unmountVHDXWithDiskpart()
+}
+
+// unmountVHDXWithGoWinio の実装はプラットフォーム固有ファイルに移動。
+
+// unmountVHDXWithDiskpart は従来のdiskpart方式でアンマウントする。
+func (v *VHDXManager) unmountVHDXWithDiskpart() error {
 	diskpartScript := fmt.Sprintf(`select vdisk file="%s"
 detach vdisk
 exit
@@ -86,6 +208,25 @@ func (v *VHDXManager) CreateSnapshot(name string) error {
 
 	snapshotPath := v.getSnapshotPath(name)
 
+	// スナップショットディレクトリを作成。
+	snapshotDir := filepath.Dir(snapshotPath)
+	if err := os.MkdirAll(snapshotDir, 0755); err != nil {
+		return fmt.Errorf("failed to create snapshot directory: %w", err)
+	}
+
+	// Windows環境でgo-winioを使用してスナップショット作成。
+	if runtime.GOOS == "windows" {
+		return v.createSnapshotWithGoWinio(snapshotPath)
+	}
+
+	// Windows以外の環境では従来のPowerShell方式（互換性のため）。
+	return v.createSnapshotWithPowerShell(snapshotPath)
+}
+
+// createSnapshotWithGoWinio の実装はプラットフォーム固有ファイルに移動。
+
+// createSnapshotWithPowerShell は従来のPowerShell方式でスナップショットを作成する。
+func (v *VHDXManager) createSnapshotWithPowerShell(snapshotPath string) error {
 	cmd := exec.Command("powershell", "-Command", fmt.Sprintf(`
 		$vhd = "%s"
 		$snapshot = "%s"
@@ -185,6 +326,31 @@ func (v *VHDXManager) parseSizeToMB() int {
 	}
 
 	return 10240
+}
+
+// parseSizeToBytes はサイズ文字列をバイト数に変換する（go-winio用）。
+func (v *VHDXManager) parseSizeToBytes() uint64 {
+	size := strings.ToUpper(v.Size)
+
+	if strings.HasSuffix(size, "GB") {
+		sizeStr := strings.TrimSuffix(size, "GB")
+		if gb := parseInt(sizeStr); gb > 0 {
+			return uint64(gb) * 1024 * 1024 * 1024
+		}
+	} else if strings.HasSuffix(size, "MB") {
+		sizeStr := strings.TrimSuffix(size, "MB")
+		if mb := parseInt(sizeStr); mb > 0 {
+			return uint64(mb) * 1024 * 1024
+		}
+	} else if strings.HasSuffix(size, "TB") {
+		sizeStr := strings.TrimSuffix(size, "TB")
+		if tb := parseInt(sizeStr); tb > 0 {
+			return uint64(tb) * 1024 * 1024 * 1024 * 1024
+		}
+	}
+
+	// デフォルト: 10GB
+	return 10 * 1024 * 1024 * 1024
 }
 
 func parseInt(s string) int {

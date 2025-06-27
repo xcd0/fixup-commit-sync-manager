@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"fixup-commit-sync-manager/internal/vhdx"
 )
 
 // initCmd はFixupCommitSyncManagerの初期セットアップを行う。
@@ -19,10 +20,10 @@ var initCmd = &cobra.Command{
 このコマンドは以下の処理を行います:
 1. 作業ディレクトリの作成
 2. 実行ファイルのコピー
-3. VHDXファイルの作成
-4. 設定ファイルの対話的生成
+3. 設定ファイルの対話的生成
 
-初回使用時に実行することを推奨します。`,
+初回使用時に実行することを推奨します。
+VHDXの初期化は別途 init-vhdx コマンドで実行してください。`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runInit()
 	},
@@ -54,12 +55,6 @@ func runInit() error {
 		return fmt.Errorf("実行ファイルのコピーに失敗しました: %w", err)
 	}
 
-	// VHDXファイルの作成。
-	vhdxPath := filepath.Join(workDir, "ops.vhdx")
-	if err := createVHDXFile(vhdxPath); err != nil {
-		return fmt.Errorf("VHDXファイルの作成に失敗しました: %w", err)
-	}
-
 	// 設定ファイルの生成。
 	configPath := filepath.Join(workDir, "config.hjson")
 	if err := generateInitialConfig(workDir, configPath); err != nil {
@@ -70,13 +65,13 @@ func runInit() error {
 	fmt.Printf("\n    === セットアップ完了 ===\n")
 	fmt.Printf("    作業ディレクトリ: %s\n", workDir)
 	fmt.Printf("    実行ファイル: %s\n", filepath.Join(workDir, "fixup-commit-sync-manager.exe"))
-	fmt.Printf("    VHDXファイル: %s\n", vhdxPath)
 	fmt.Printf("    設定ファイル: %s\n", configPath)
 	fmt.Println()
 	fmt.Println("    次の手順:")
 	fmt.Println("    1. 設定ファイルを確認・編集してください")
-	fmt.Printf("    2. VHDXをマウント: %s mount-vhdx\n", filepath.Join(workDir, "fixup-commit-sync-manager.exe"))
-	fmt.Printf("    3. 同期開始: %s sync --continuous\n", filepath.Join(workDir, "fixup-commit-sync-manager.exe"))
+	fmt.Printf("    2. VHDXを初期化: %s init-vhdx\n", filepath.Join(workDir, "fixup-commit-sync-manager.exe"))
+	fmt.Printf("    3. VHDXをマウント: %s mount-vhdx\n", filepath.Join(workDir, "fixup-commit-sync-manager.exe"))
+	fmt.Printf("    4. 同期開始: %s sync --continuous\n", filepath.Join(workDir, "fixup-commit-sync-manager.exe"))
 
 	return nil
 }
@@ -154,25 +149,39 @@ func copyExecutable(workDir string) error {
 func createVHDXFile(vhdxPath string) error {
 	// 既に存在する場合はスキップ。
 	if _, err := os.Stat(vhdxPath); err == nil {
-		fmt.Printf("    VHDXファイルは既に存在します: %s\n", vhdxPath)
+		fmt.Printf("VHDXファイルは既に存在します: %s\n", vhdxPath)
 		return nil
 	}
 
-	fmt.Printf("    VHDXファイルを作成しています: %s\n", vhdxPath)
+	fmt.Printf("VHDXファイルを作成しています: %s\n", vhdxPath)
 
-	// Windowsの場合、diskpartまたはPowerShellでVHDXを作成。
-	// ここでは簡易的にダミーファイルを作成。
-	// 実際のVHDX作成は既存のinit-vhdxコマンドを利用。
+	// VHDXマネージャーを使用して実際のVHDXファイルを作成。
+	vhdxManager := vhdx.NewManager(vhdxPath, "X:")
 	
-	// ダミーファイルを作成（後でinit-vhdxで上書きされる）。
-	file, err := os.Create(vhdxPath)
+	// VHDXファイルを作成（10GBデフォルト、暗号化なし）。
+	err := vhdxManager.Create("10GB", false)
 	if err != nil {
-		return err
+		// 実際のVHDX作成が失敗した場合は、ダミーファイルを作成。
+		fmt.Printf("実際のVHDX作成に失敗しました。ダミーファイルを作成します: %v\n", err)
+		
+		// ディレクトリを作成。
+		if err := os.MkdirAll(filepath.Dir(vhdxPath), 0755); err != nil {
+			return fmt.Errorf("VHDXディレクトリ作成エラー: %v", err)
+		}
+		
+		// ダミーファイルを作成。
+		file, err := os.Create(vhdxPath)
+		if err != nil {
+			return fmt.Errorf("ダミーVHDXファイル作成エラー: %v", err)
+		}
+		file.Close()
+		
+		fmt.Println("VHDXダミーファイルの準備が完了しました。")
+		fmt.Println("注意: 実際のVHDX初期化は init-vhdx コマンドで行ってください。")
+		return nil
 	}
-	file.Close()
 
-	fmt.Println("    VHDXファイルの準備が完了しました。")
-	fmt.Println("    注意: 実際のVHDX初期化は後で行われます。")
+	fmt.Println("VHDXファイルの作成が完了しました。")
 	return nil
 }
 

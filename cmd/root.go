@@ -19,7 +19,8 @@ var rootCmd = &cobra.Command{
 - 包括的なログ記録とエラーハンドリング
 
 利用可能なサブコマンド:
-- init             : 初期セットアップ（作業ディレクトリ作成、VHDX作成、設定生成）
+- run              : メイン機能を実行（初期化から定期実行まで一括処理）
+- init             : 初期セットアップ（作業ディレクトリ作成、設定生成）
 - init-config      : 対話型ウィザードで設定ファイルを作成
 - validate-config  : 設定ファイルの構文と内容を検証
 - init-vhdx        : VHDX ファイルを初期化して Ops リポジトリをセットアップ
@@ -43,6 +44,22 @@ func init() {
 	rootCmd.PersistentFlags().Bool("dry-run", false, "実際の変更を行わずにプレビュー実行")
 	rootCmd.PersistentFlags().Bool("verbose", false, "詳細な出力を有効化")
 
+	// ヘルプテンプレートを日本語化
+	rootCmd.SetUsageTemplate(getUsageTemplate())
+	rootCmd.SetHelpTemplate(getHelpTemplate())
+
+	// completion コマンドを無効化
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
+	
+	// デフォルトのhelpコマンドを無効化して日本語版を追加
+	rootCmd.SetHelpCommand(&cobra.Command{
+		Use:    "help [コマンド]",
+		Short:  "コマンドのヘルプを表示",
+		Long:   "指定されたコマンドの詳細なヘルプ情報を表示します。",
+		Hidden: true,
+	})
+
+	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(NewInitConfigCmd())
 	rootCmd.AddCommand(NewValidateConfigCmd())
@@ -52,28 +69,39 @@ func init() {
 	rootCmd.AddCommand(NewSnapshotVHDXCmd())
 	rootCmd.AddCommand(NewSyncCmd())
 	rootCmd.AddCommand(NewFixupCmd())
-	rootCmd.AddCommand(NewHelpCmd())
 }
 
-func NewHelpCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "help",
-		Short: "サブコマンドのヘルプ情報を表示",
-		Long:  "利用可能なすべてのサブコマンドの詳細ヘルプ情報を表示します",
-		Run: func(cmd *cobra.Command, args []string) {
-			if len(args) == 0 {
-				rootCmd.Help()
-				return
-			}
+// getUsageTemplate は日本語化されたUsageテンプレートを返す。
+func getUsageTemplate() string {
+	return `使用法:{{if .Runnable}}
+  {{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
+  {{.CommandPath}} [コマンド]{{end}}{{if gt (len .Aliases) 0}}
 
-			subCmd, _, err := rootCmd.Find(args)
-			if err != nil {
-				fmt.Printf("不明なコマンド: %s\n", args[0])
-				rootCmd.Help()
-				return
-			}
+別名:
+  {{.NameAndAliases}}{{end}}{{if .HasExample}}
 
-			subCmd.Help()
-		},
-	}
+例:
+{{.Example}}{{end}}{{if .HasAvailableSubCommands}}
+
+利用可能なコマンド:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
+
+オプション:
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
+
+グローバルオプション:
+{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasHelpSubCommands}}
+
+追加ヘルプトピック:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
+  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
+
+詳細は "{{.CommandPath}} [コマンド] --help" を実行してください。{{end}}
+`
+}
+
+// getHelpTemplate は日本語化されたHelpテンプレートを返す。
+func getHelpTemplate() string {
+	return `{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
+
+{{end}}{{if or .Runnable .HasSubCommands}}{{.UsageString}}{{end}}`
 }
