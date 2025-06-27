@@ -87,7 +87,7 @@ func gatherConfigInteractivelyWithWorkDir(workDir, defaultLogPath string) *confi
 	// Opsリポジトリパスを自動生成
 	if cfg.DevRepoPath != "" {
 		devBaseName := filepath.Base(cfg.DevRepoPath)
-		cfg.OpsRepoPath = filepath.Join(cfg.MountPoint, devBaseName)
+		cfg.OpsRepoPath = filepath.ToSlash(filepath.Join(cfg.MountPoint, devBaseName))
 		fmt.Printf("    Opsリポジトリパス（自動生成）: %s\n", cfg.OpsRepoPath)
 	}
 
@@ -136,7 +136,7 @@ func gatherConfigInteractivelyWithWorkDir(workDir, defaultLogPath string) *confi
 
 	// VHDXパスを自動生成
 	if workDir != "" {
-		cfg.VHDXPath = filepath.Join(workDir, "ops.vhdx")
+		cfg.VHDXPath = filepath.ToSlash(filepath.Join(workDir, "ops.vhdx"))
 	}
 
 	return cfg
@@ -157,7 +157,7 @@ func runInitConfigImproved(configPath, workDir string) error {
 	// デフォルトのログファイルパスを生成
 	defaultLogPath := "./sync.log"
 	if workDir != "" {
-		defaultLogPath = filepath.Join(workDir, "sync.log")
+		defaultLogPath = filepath.ToSlash(filepath.Join(workDir, "sync.log"))
 	}
 
 	cfg := gatherConfigInteractivelyWithWorkDir(workDir, defaultLogPath)
@@ -183,50 +183,50 @@ func writeConfigTemplate(configPath string, cfg *config.Config) error {
 
 func generateHJSONTemplate(cfg *config.Config) string {
 	return fmt.Sprintf(`{
-  // FixupCommitSyncManager Configuration File
-  // This file uses HJSON format (Human JSON) which allows comments and relaxed syntax
+  // FixupCommitSyncManager 設定ファイル
+  // このファイルはHJSON形式（Human JSON）でコメントと緩い構文が使用可能です
 
-  // === Repository Settings ===
-  "devRepoPath": "%s",        // Dev repository local path (required)
-  "opsRepoPath": "%s",        // Ops repository local path (required)
+  // === リポジトリ設定 ===
+  "devRepoPath": "%s",        // Devリポジトリのローカルパス（必須）
+  "opsRepoPath": "%s",        // Opsリポジトリのローカルパス（必須）
 
-  // === File Synchronization Settings ===
-  "includeExtensions": [".cpp", ".h", ".hpp"],  // File extensions to sync
-  "includePatterns": [],      // Additional path patterns to include (Glob format)
-  "excludePatterns": [],      // Path patterns to exclude (Glob format)
+  // === ファイル同期設定 ===
+  "includeExtensions": [".cpp", ".h", ".hpp"],  // 同期対象のファイル拡張子
+  "includePatterns": [],      // 追加の同期対象パターン（Glob形式）
+  "excludePatterns": [],      // 同期除外パターン（Glob形式）
 
-  // === Sync Operation Settings ===
-  "syncInterval": "%s",       // Sync operation interval
-  "pauseLockFile": "%s",      // Lock file name to pause sync
-  "gitExecutable": "%s",      // Git command path
-  "commitTemplate": "%s",     // Commit message template
-  "authorName": "",           // Commit author name (empty = use git global config)
-  "authorEmail": "",          // Commit author email (empty = use git global config)
+  // === 同期動作設定 ===
+  "syncInterval": "%s",       // 同期実行間隔
+  "pauseLockFile": "%s",      // 同期を一時停止するロックファイル名
+  "gitExecutable": "%s",      // Gitコマンドのパス
+  "commitTemplate": "%s",     // コミットメッセージテンプレート
+  "authorName": "",           // コミット作成者名（空=git global設定を使用）
+  "authorEmail": "",          // コミット作成者メール（空=git global設定を使用）
 
-  // === Fixup Settings ===
-  "fixupInterval": "%s",      // Fixup commit interval
-  "fixupMessagePrefix": "%s", // Fixup commit message prefix
-  "autosquashEnabled": %t,    // Enable --autosquash flag
-  // Note: Branch settings are now dynamic - automatically tracks Dev repository's current branch
+  // === Fixup設定 ===
+  "fixupInterval": "%s",      // Fixupコミット実行間隔
+  "fixupMessagePrefix": "%s", // Fixupコミットメッセージプレフィックス
+  "autosquashEnabled": %t,    // --autosquashフラグを有効化
+  // 注意: ブランチ設定は動的追従 - Devリポジトリの現在ブランチを自動追跡
 
-  // === Retry and Error Handling ===
-  "maxRetries": %d,           // Maximum retry attempts
-  "retryDelay": "%s",         // Delay between retries
-  "notifyOnError": {          // Error notification settings (optional)
+  // === リトライとエラー処理 ===
+  "maxRetries": %d,           // 最大リトライ回数
+  "retryDelay": "%s",         // リトライ間隔
+  "notifyOnError": {          // エラー通知設定（オプション）
     // "slackWebhookUrl": "https://hooks.slack.com/..."
   },
 
-  // === Logging Settings ===
-  "logLevel": "%s",           // Log level: DEBUG, INFO, WARN, ERROR
-  "logFilePath": "%s",        // Log file output path
-  "verbose": %t,              // Verbose output to stdout
-  "dryRun": %t,               // Dry run mode (no actual operations)
+  // === ログ設定 ===
+  "logLevel": "%s",           // ログレベル: DEBUG, INFO, WARN, ERROR
+  "logFilePath": "%s",        // ログファイル出力パス
+  "verbose": %t,              // 標準出力への詳細出力
+  "dryRun": %t,               // ドライランモード（実際の操作を行わない）
 
-  // === VHDX Settings ===
-  "vhdxPath": "%s",           // VHDX file path (required for init-vhdx)
-  "vhdxSize": "%s",           // VHDX file size
-  "mountPoint": "%s",         // VHDX mount point (required for init-vhdx)
-  "encryptionEnabled": %t     // Enable VHDX encryption
+  // === VHDX設定 ===
+  "vhdxPath": "%s",           // VHDXファイルパス（init-vhdx用必須）
+  "vhdxSize": "%s",           // VHDXファイルサイズ
+  "mountPoint": "%s",         // VHDXマウントポイント（init-vhdx用必須）
+  "encryptionEnabled": %t     // VHDX暗号化を有効化
 }`,
 		cfg.DevRepoPath,
 		cfg.OpsRepoPath,
