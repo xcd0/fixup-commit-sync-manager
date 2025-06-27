@@ -63,7 +63,7 @@ func gatherConfigInteractivelyWithWorkDir(workDir, defaultLogPath string) *confi
 	// Devリポジトリパス（必須）
 	fmt.Println("    【Devリポジトリ設定】")
 	fmt.Println("    同期元となるDevリポジトリのローカルパスを指定してください。")
-	fmt.Print("    Devリポジトリパス（必須）: ")
+	fmt.Print("Devリポジトリパス（必須）: ")
 	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
 		cfg.DevRepoPath = strings.TrimSpace(input)
 	}
@@ -72,8 +72,8 @@ func gatherConfigInteractivelyWithWorkDir(workDir, defaultLogPath string) *confi
 	fmt.Println()
 	fmt.Println("    【VHDX設定】")
 	fmt.Println("    VHDXファイルをマウントするドライブレターを指定してください。")
-	fmt.Println("    例: Q (Q:ドライブとしてマウント)")
-	fmt.Print("    VHDXマウントポイント（必須） [X]: ")
+	fmt.Println("    例: X (X:ドライブとしてマウント)")
+	fmt.Print("VHDXマウントポイント（必須） [X]: ")
 	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
 		mountPoint := strings.TrimSpace(input)
 		if !strings.HasSuffix(mountPoint, ":") {
@@ -92,7 +92,7 @@ func gatherConfigInteractivelyWithWorkDir(workDir, defaultLogPath string) *confi
 	}
 
 	// VHDXサイズ
-	fmt.Printf("    VHDXファイルサイズ [%s]: ", cfg.VHDXSize)
+	fmt.Printf("VHDXファイルサイズ [%s]: ", cfg.VHDXSize)
 	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
 		cfg.VHDXSize = strings.TrimSpace(input)
 	}
@@ -101,14 +101,14 @@ func gatherConfigInteractivelyWithWorkDir(workDir, defaultLogPath string) *confi
 	fmt.Println()
 	fmt.Println("    【同期設定】")
 	fmt.Println("    ファイル同期の実行間隔を指定してください。（例: 5m, 30s, 1h）")
-	fmt.Printf("    同期間隔 [%s]: ", cfg.SyncInterval)
+	fmt.Printf("同期間隔 [%s]: ", cfg.SyncInterval)
 	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
 		cfg.SyncInterval = strings.TrimSpace(input)
 	}
 
 	// Fixup間隔
 	fmt.Println("    Fixupコミットの実行間隔を指定してください。（例: 1h, 30m）")
-	fmt.Printf("    Fixup間隔 [%s]: ", cfg.FixupInterval)
+	fmt.Printf("Fixup間隔 [%s]: ", cfg.FixupInterval)
 	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
 		cfg.FixupInterval = strings.TrimSpace(input)
 	}
@@ -120,7 +120,7 @@ func gatherConfigInteractivelyWithWorkDir(workDir, defaultLogPath string) *confi
 	if defaultLogPath != "" {
 		cfg.LogFilePath = defaultLogPath
 	}
-	fmt.Printf("    ログファイルパス [%s]: ", cfg.LogFilePath)
+	fmt.Printf("ログファイルパス [%s]: ", cfg.LogFilePath)
 	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
 		cfg.LogFilePath = strings.TrimSpace(input)
 	}
@@ -129,7 +129,7 @@ func gatherConfigInteractivelyWithWorkDir(workDir, defaultLogPath string) *confi
 	fmt.Println()
 	fmt.Println("    【セキュリティ設定】")
 	fmt.Println("    VHDXファイルの暗号化を有効にしますか？")
-	fmt.Print("    VHDX暗号化を有効にする？ (y/N): ")
+	fmt.Print("VHDX暗号化を有効にする？ (y/N): ")
 	if input, _ := reader.ReadString('\n'); strings.ToLower(strings.TrimSpace(input)) == "y" {
 		cfg.EncryptionEnabled = true
 	}
@@ -145,7 +145,7 @@ func gatherConfigInteractivelyWithWorkDir(workDir, defaultLogPath string) *confi
 // runInitConfigImproved は改善された設定ファイル生成を実行する。
 func runInitConfigImproved(configPath, workDir string) error {
 	if _, err := os.Stat(configPath); err == nil {
-		fmt.Printf("    設定ファイル %s が既に存在します。上書きしますか？ (y/N): ", configPath)
+		fmt.Printf("設定ファイル %s が既に存在します。上書きしますか？ (y/N): ", configPath)
 		reader := bufio.NewReader(os.Stdin)
 		response, _ := reader.ReadString('\n')
 		if strings.ToLower(strings.TrimSpace(response)) != "y" {
