@@ -13,12 +13,12 @@ import (
 func NewSyncCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync",
-		Short: "Synchronize source files between Dev and Ops repositories",
-		Long:  "Synchronizes tracked and new source files from Dev repository to Ops repository and commits changes",
+		Short: "Dev リポジトリと Ops リポジトリ間でソースファイルを同期",
+		Long:  "Dev リポジトリから Ops リポジトリへ追跡対象および新規ソースファイルを同期し、変更をコミットします",
 		RunE:  runSync,
 	}
 
-	cmd.Flags().Bool("continuous", false, "Run sync continuously at configured interval")
+	cmd.Flags().Bool("continuous", false, "設定された間隔で継続的に同期を実行")
 	
 	return cmd
 }

@@ -12,8 +12,8 @@ import (
 func NewMountVHDXCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "mount-vhdx",
-		Short: "Mount VHDX file",
-		Long:  "Mounts the specified VHDX file to the configured mount point",
+		Short: "VHDX ファイルをマウント",
+		Long:  "指定された VHDX ファイルを設定されたマウントポイントにマウントします",
 		RunE:  runMountVHDX,
 	}
 }

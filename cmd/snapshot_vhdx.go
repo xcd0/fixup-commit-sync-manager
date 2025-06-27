@@ -13,8 +13,8 @@ import (
 func NewSnapshotVHDXCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "snapshot-vhdx",
-		Short: "Manage VHDX snapshots",
-		Long:  "Create, list, or rollback VHDX snapshots",
+		Short: "VHDX スナップショットを管理",
+		Long:  "VHDX スナップショットの作成、一覧表示、ロールバックを実行します",
 	}
 
 	cmd.AddCommand(NewCreateSnapshotCmd())
@@ -27,8 +27,8 @@ func NewSnapshotVHDXCmd() *cobra.Command {
 func NewCreateSnapshotCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create [snapshot-name]",
-		Short: "Create a new VHDX snapshot",
-		Long:  "Creates a new snapshot of the VHDX file with the specified name",
+		Short: "新しい VHDX スナップショットを作成",
+		Long:  "指定された名前で VHDX ファイルの新しいスナップショットを作成します",
 		RunE:  runCreateSnapshot,
 	}
 	return cmd
@@ -37,8 +37,8 @@ func NewCreateSnapshotCmd() *cobra.Command {
 func NewListSnapshotsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List available VHDX snapshots",
-		Long:  "Lists all available snapshots for the VHDX file",
+		Short: "利用可能な VHDX スナップショットを一覧表示",
+		Long:  "VHDX ファイルの利用可能なすべてのスナップショットを一覧表示します",
 		RunE:  runListSnapshots,
 	}
 	return cmd
@@ -47,8 +47,8 @@ func NewListSnapshotsCmd() *cobra.Command {
 func NewRollbackSnapshotCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rollback <snapshot-name>",
-		Short: "Rollback to a VHDX snapshot",
-		Long:  "Rolls back the VHDX file to the specified snapshot",
+		Short: "VHDX スナップショットにロールバック",
+		Long:  "VHDX ファイルを指定されたスナップショットにロールバックします",
 		Args:  cobra.ExactArgs(1),
 		RunE:  runRollbackSnapshot,
 	}

@@ -12,8 +12,8 @@ import (
 func NewUnmountVHDXCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "unmount-vhdx",
-		Short: "Unmount VHDX file",
-		Long:  "Unmounts the specified VHDX file from the configured mount point",
+		Short: "VHDX ファイルをアンマウント",
+		Long:  "指定された VHDX ファイルを設定されたマウントポイントからアンマウントします",
 		RunE:  runUnmountVHDX,
 	}
 }

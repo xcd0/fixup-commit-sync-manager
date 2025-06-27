@@ -16,8 +16,8 @@ import (
 func NewInitVHDXCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init-vhdx",
-		Short: "Initialize VHDX file with Ops repository",
-		Long:  "Creates VHDX file, mounts it, clones the repository, sets remote URL, and unmounts",
+		Short: "Ops リポジトリで VHDX ファイルを初期化",
+		Long:  "VHDX ファイルを作成し、マウント、リポジトリクローン、リモート URL 設定、アンマウントを実行します",
 		RunE:  runInitVHDX,
 	}
 }

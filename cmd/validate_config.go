@@ -13,8 +13,8 @@ import (
 func NewValidateConfigCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "validate-config",
-		Short: "Validate configuration file syntax and content",
-		Long:  "Validates the HJSON configuration file for syntax errors, required fields, and version compatibility",
+		Short: "設定ファイルの構文と内容を検証",
+		Long:  "HJSON 設定ファイルの構文エラー、必須フィールド、バージョン互換性を検証します",
 		RunE:  runValidateConfig,
 	}
 }

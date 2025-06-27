@@ -9,23 +9,24 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "FixupCommitSyncManager",
-	Short: "A tool for synchronizing source files between Dev and Ops repositories",
-	Long: `FixupCommitSyncManager is a comprehensive tool for Windows environments that provides:
+	Short: "Dev リポジトリと Ops リポジトリ間でソースファイルを同期するツール",
+	Long: `FixupCommitSyncManager は Windows 環境向けの総合運用プラットフォームです:
 
-- Automatic synchronization of source files between Dev and Ops repositories
-- VHDX-based isolation and initialization features
-- Configuration generation and validation
-- Automated fixup commits with autosquash functionality
-- Comprehensive logging and error handling
+- Dev リポジトリ⇔Ops リポジトリ間のソースファイル自動同期
+- VHDX を用いた隔離初期化機能
+- 設定ファイルの生成と検証
+- autosquash 対応の自動 fixup コミット機能
+- 包括的なログ記録とエラーハンドリング
 
-The tool supports various subcommands for different operations:
-- init-config: Create configuration file through interactive wizard
-- validate-config: Validate configuration file syntax and content
-- init-vhdx: Initialize VHDX file with Ops repository
-- mount-vhdx/unmount-vhdx: Mount/unmount VHDX files
-- snapshot-vhdx: Manage VHDX snapshots
-- sync: Synchronize files between repositories
-- fixup: Perform fixup commits`,
+利用可能なサブコマンド:
+- init-config      : 対話型ウィザードで設定ファイルを作成
+- validate-config  : 設定ファイルの構文と内容を検証
+- init-vhdx        : VHDX ファイルを初期化して Ops リポジトリをセットアップ
+- mount-vhdx       : VHDX ファイルをマウント
+- unmount-vhdx     : VHDX ファイルをアンマウント
+- snapshot-vhdx    : VHDX スナップショットを管理
+- sync             : リポジトリ間でファイルを同期
+- fixup            : fixup コミットを実行`,
 	Version: "1.0.0",
 }
 
@@ -37,9 +38,9 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().String("config", "", "Configuration file path (default: config.hjson)")
-	rootCmd.PersistentFlags().Bool("dry-run", false, "Perform a dry run without making actual changes")
-	rootCmd.PersistentFlags().Bool("verbose", false, "Enable verbose output")
+	rootCmd.PersistentFlags().String("config", "", "設定ファイルのパス (デフォルト: config.hjson)")
+	rootCmd.PersistentFlags().Bool("dry-run", false, "実際の変更を行わずにプレビュー実行")
+	rootCmd.PersistentFlags().Bool("verbose", false, "詳細な出力を有効化")
 
 	rootCmd.AddCommand(NewInitConfigCmd())
 	rootCmd.AddCommand(NewValidateConfigCmd())
@@ -55,8 +56,8 @@ func init() {
 func NewHelpCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "help",
-		Short: "Display help information for subcommands",
-		Long:  "Displays detailed help information for all available subcommands",
+		Short: "サブコマンドのヘルプ情報を表示",
+		Long:  "利用可能なすべてのサブコマンドの詳細ヘルプ情報を表示します",
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
 				rootCmd.Help()
@@ -65,7 +66,7 @@ func NewHelpCmd() *cobra.Command {
 
 			subCmd, _, err := rootCmd.Find(args)
 			if err != nil {
-				fmt.Printf("Unknown command: %s\n", args[0])
+				fmt.Printf("不明なコマンド: %s\n", args[0])
 				rootCmd.Help()
 				return
 			}

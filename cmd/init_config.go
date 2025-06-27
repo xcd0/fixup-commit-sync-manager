@@ -15,8 +15,8 @@ import (
 func NewInitConfigCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init-config",
-		Short: "Create an interactive HJSON configuration file template",
-		Long:  "Creates a new configuration file using an interactive wizard to gather required settings",
+		Short: "対話型ウィザードで HJSON 設定ファイルのテンプレートを作成",
+		Long:  "対話型ウィザードを使用して必要な設定を収集し、新しい設定ファイルを作成します",
 		RunE:  runInitConfig,
 	}
 }

@@ -12,12 +12,12 @@ import (
 func NewFixupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "fixup",
-		Short: "Perform fixup commit operations on Ops repository",
-		Long:  "Creates fixup commits for changes in the Ops repository and optionally performs autosquash rebase",
+		Short: "Ops リポジトリで fixup コミット操作を実行",
+		Long:  "Ops リポジトリの変更に対して fixup コミットを作成し、オプションで autosquash rebase を実行します",
 		RunE:  runFixup,
 	}
 
-	cmd.Flags().Bool("continuous", false, "Run fixup continuously at configured interval")
+	cmd.Flags().Bool("continuous", false, "設定された間隔で継続的に fixup を実行")
 	
 	return cmd
 }
