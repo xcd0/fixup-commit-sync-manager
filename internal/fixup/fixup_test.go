@@ -12,8 +12,7 @@ import (
 func TestNewFixupManager(t *testing.T) {
 	cfg := &config.Config{
 		OpsRepoPath:       "/path/to/ops",
-		TargetBranch:      "sync-branch",
-		BaseBranch:        "main",
+		DevRepoPath:       "/path/to/dev",
 		FixupMsgPrefix:    "fixup! ",
 		AutosquashEnabled: true,
 	}
@@ -57,7 +56,7 @@ func TestValidateRepository(t *testing.T) {
 
 	cfg := &config.Config{
 		OpsRepoPath:   opsRepo,
-		TargetBranch:  "master",
+		DevRepoPath:   tempDir + "/dev",
 		GitExecutable: "git",
 	}
 
