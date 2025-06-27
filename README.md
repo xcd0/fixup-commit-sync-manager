@@ -8,9 +8,11 @@ FixupCommitSyncManager は、Windows 環境で開発リポジトリと運用リ�
 
 ### 主な機能
 
+- **🔄 動的ブランチ追従**: Dev リポジトリのカレントブランチに自動追従
 - **📁 自動ファイル同期**: Dev リポジトリ⇔Ops リポジトリ間のソースファイル自動同期
+- **🌟 ブランチ自動管理**: 必要に応じてブランチを自動作成・切り替え
 - **💾 VHDX サポート**: VHDX を用いた隔離初期化機能
-- **⚙️ 設定管理**: 対話型ウィザードによる設定ファイル生成と検証
+- **⚙️ 設定管理**: 対話型ウィザードによる設定ファイル生成と検証（ブランチ設定不要）
 - **🔄 Fixup コミット**: autosquash 対応の自動 fixup コミット機能
 - **📊 包括的ログ**: 構造化ログとエラー通知システム
 
@@ -50,20 +52,20 @@ make build
 ### 3. ファイル同期実行
 
 ```bash
-# 一回のみ同期
+# 一回のみ同期（Dev のカレントブランチに自動追従）
 ./fixup-commit-sync-manager sync
 
-# 継続的同期（5分間隔）
+# 継続的同期（5分間隔、ブランチ変更も自動検出）
 ./fixup-commit-sync-manager sync --continuous
 ```
 
 ### 4. Fixup コミット実行
 
 ```bash
-# 一回のみ fixup
+# 一回のみ fixup（Dev のカレントブランチで実行）
 ./fixup-commit-sync-manager fixup
 
-# 継続的 fixup（1時間間隔）
+# 継続的 fixup（1時間間隔、ブランチ変更も自動追従）
 ./fixup-commit-sync-manager fixup --continuous
 ```
 
@@ -71,10 +73,10 @@ make build
 
 | コマンド | 説明 |
 |----------|------|
-| `init-config` | 対話型ウィザードで設定ファイルを作成 |
+| `init-config` | 対話型ウィザードで設定ファイルを作成（ブランチ設定不要） |
 | `validate-config` | 設定ファイルの構文と内容を検証 |
-| `sync` | Dev↔Ops リポジトリ間でファイルを同期 |
-| `fixup` | fixup コミットを実行 |
+| `sync` | Dev↔Ops リポジトリ間でファイルを動的ブランチ追従で同期 |
+| `fixup` | 動的ブランチ追従で fixup コミットを実行 |
 | `init-vhdx` | VHDX ファイルを初期化 |
 | `mount-vhdx` | VHDX ファイルをマウント |
 | `unmount-vhdx` | VHDX ファイルをアンマウント |
@@ -101,9 +103,8 @@ make build
 
   // === Fixup Settings ===
   "fixupInterval": "1h",
-  "targetBranch": "sync-branch",
-  "baseBranch": "main",
   "autosquashEnabled": true,
+  // Note: Branch settings are now dynamic - automatically tracks Dev repository's current branch
 
   // === VHDX Settings ===
   "vhdxPath": "C:\\vhdx\\ops.vhdx",
@@ -121,18 +122,36 @@ make build
 ### 基本的なワークフロー
 
 ```bash
-# 1. 設定ファイル作成
+# 1. 設定ファイル作成（ブランチ設定は不要）
 ./fixup-commit-sync-manager init-config
 
 # 2. 設定検証
 ./fixup-commit-sync-manager validate-config --verbose
 
-# 3. 一回のみ同期
+# 3. 一回のみ同期（Dev のカレントブランチに自動追従）
 ./fixup-commit-sync-manager sync --verbose
 
-# 4. 継続的運用開始
+# 4. 継続的運用開始（ブランチ変更も自動検出）
 ./fixup-commit-sync-manager sync --continuous &
 ./fixup-commit-sync-manager fixup --continuous &
+```
+
+### 動的ブランチ追従の例
+
+```bash
+# Dev 側で feature-abc ブランチに切り替え
+cd /path/to/dev-repo
+git checkout feature-abc
+
+# 同期実行 → Ops 側も自動的に feature-abc ブランチに切り替わる
+./fixup-commit-sync-manager sync
+
+# Dev 側で main ブランチに戻る
+cd /path/to/dev-repo  
+git checkout main
+
+# 同期実行 → Ops 側も自動的に main ブランチに切り替わる
+./fixup-commit-sync-manager sync
 ```
 
 ### VHDX を使用したワークフロー
@@ -197,9 +216,9 @@ make test-coverage
 FixupCommitSyncManager/
 ├── cmd/                    # CLI コマンド実装
 ├── internal/
-│   ├── config/            # 設定管理
-│   ├── sync/              # ファイル同期
-│   ├── fixup/             # Fixup コミット
+│   ├── config/            # 設定管理（ブランチ設定削除済み）
+│   ├── sync/              # ファイル同期（動的ブランチ追従）
+│   ├── fixup/             # Fixup コミット（動的ブランチ追従）
 │   ├── vhdx/              # VHDX 管理
 │   ├── logger/            # ログシステム
 │   ├── retry/             # リトライ機能
@@ -207,6 +226,14 @@ FixupCommitSyncManager/
 │   └── utils/             # ユーティリティ
 └── main.go                # エントリーポイント
 ```
+
+## 動的ブランチ追従の仕組み
+
+1. **ブランチ検出**: Dev リポジトリのカレントブランチを `git branch --show-current` で検出
+2. **ブランチ切り替え**: Ops リポジトリを同じブランチに自動切り替え
+3. **ブランチ作成**: 必要に応じてローカルまたはリモートから新規ブランチを作成
+4. **差分検出**: Dev の直前コミット（HEAD^）との差分を検出
+5. **同期実行**: 検出した差分を Ops リポジトリの同じブランチにコミット
 
 ## ライセンス
 

@@ -1,6 +1,6 @@
 # FixupCommitSyncManager - Implementation Guide
 
-This document provides implementation details for the FixupCommitSyncManager, a Go-based tool for synchronizing source files between Dev and Ops repositories on Windows.
+This document provides implementation details for the FixupCommitSyncManager, a Go-based tool for synchronizing source files between Dev and Ops repositories with dynamic branch tracking.
 
 ## Project Structure
 
@@ -50,7 +50,7 @@ FixupCommitSyncManager/
 - HJSON-based configuration with comments
 - Interactive wizard for config generation
 - Comprehensive validation including paths and intervals
-- Support for all required settings from specification
+- **Dynamic branch tracking**: No manual branch configuration required
 
 ### 2. VHDX Management (`internal/vhdx/`)
 - VHDX creation, mounting, and unmounting
@@ -59,16 +59,20 @@ FixupCommitSyncManager/
 - Cross-platform testing support
 
 ### 3. File Synchronization (`internal/sync/`)
-- Tracks changes in Dev repository
+- **Dynamic branch tracking**: Automatically detects Dev repository's current branch
+- **Auto branch switching**: Ops repository follows Dev repository's branch
+- **Branch creation**: Creates missing branches locally or from remote
+- Tracks changes from previous commit (HEAD^) vs current state
 - Supports include/exclude patterns
 - Preserves directory structure
 - Automatic commit generation with templates
 
 ### 4. Fixup Operations (`internal/fixup/`)
-- Automated fixup commits
+- **Dynamic branch tracking**: Follows Dev repository's current branch
+- Automated fixup commits against previous commit
 - Autosquash rebase support
-- Target branch management
 - Continuous operation mode
+- No fixed target/base branch dependency
 
 ### 5. Utilities (`internal/logger/`, `internal/retry/`, `internal/notify/`)
 - Structured logging with levels and colors
@@ -79,10 +83,10 @@ FixupCommitSyncManager/
 ## Commands Implemented
 
 ### Core Commands
-- `init-config`: Interactive configuration wizard
+- `init-config`: Interactive configuration wizard (no branch configuration needed)
 - `validate-config`: Configuration validation
-- `sync`: File synchronization with continuous mode
-- `fixup`: Fixup commit operations with continuous mode
+- `sync`: File synchronization with dynamic branch tracking and continuous mode
+- `fixup`: Fixup commit operations with dynamic branch tracking and continuous mode
 
 ### VHDX Commands
 - `init-vhdx`: Initialize VHDX with repository clone
@@ -161,9 +165,8 @@ go test -v ./internal/sync       # Verbose sync tests
   
   // Fixup settings
   "fixupInterval": "1h",
-  "targetBranch": "sync-branch",
-  "baseBranch": "main",
   "autosquashEnabled": true,
+  // Note: Branch settings are now dynamic - automatically tracks Dev repository's current branch
   
   // VHDX settings
   "vhdxPath": "C:\\vhdx\\ops.vhdx",
@@ -181,19 +184,42 @@ go test -v ./internal/sync       # Verbose sync tests
 ## Implementation Status
 
 ✅ **Completed:**
-1. Interactive config wizard with HJSON template generation
-2. Configuration validation with comprehensive checks
-3. VHDX creation, mounting, and snapshot management
-4. File synchronization with pattern matching
-5. Fixup commit operations with autosquash
-6. Logging, retry mechanism, and error handling
-7. Complete test coverage for core functionality
-8. CLI with all specified subcommands
+1. **Dynamic branch tracking**: Automatically follows Dev repository's current branch
+2. Interactive config wizard with HJSON template generation (no branch config needed)
+3. Configuration validation with comprehensive checks
+4. VHDX creation, mounting, and snapshot management
+5. File synchronization with dynamic branch switching and pattern matching
+6. Fixup commit operations with dynamic branch tracking and autosquash
+7. Logging, retry mechanism, and error handling
+8. Complete test coverage for core functionality including dynamic branch features
+9. CLI with all specified subcommands
+
+## Dynamic Branch Tracking Features
+
+### Sync Process Flow:
+1. Detects Dev repository's current branch (e.g., `feature-abc`)
+2. Switches Ops repository to the same branch (`feature-abc`)
+3. Creates branch if it doesn't exist (locally or from remote)
+4. Compares Dev's previous commit (HEAD^) with current state
+5. Syncs differences to Ops repository on the same branch
+
+### Fixup Process Flow:
+1. Detects Dev repository's current branch
+2. Switches Ops repository to the same branch
+3. Creates fixup commits against the previous commit
+4. Applies autosquash rebase if enabled
+
+### Branch Management:
+- **Automatic creation**: Creates missing branches locally or from remote origin
+- **No configuration**: No manual branch specification needed
+- **Dynamic switching**: Always follows Dev repository's current state
+- **Backward compatibility**: Works with existing repositories
 
 📝 **Notes:**
 - VHDX operations require Windows environment for full functionality
 - Git operations require git executable in PATH
 - Slack notifications require webhook URL configuration
 - Some tests may be skipped on non-Windows or non-Git environments
+- Dynamic branch tracking works with any branch name - no restrictions
 
-The implementation follows the specification requirements and provides a complete, testable solution for source file synchronization between Dev and Ops repositories.
+The implementation provides a robust, dynamic solution for source file synchronization that automatically adapts to the developer's workflow without manual branch configuration.
