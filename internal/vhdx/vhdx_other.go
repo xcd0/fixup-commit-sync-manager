@@ -8,7 +8,7 @@ import (
 )
 
 // VirtualDisk は非Windows環境でのプレースホルダー型。
-type VirtualDisk struct{}
+type VirtualDisk int
 
 // Close はプレースホルダーメソッド。
 func (vd VirtualDisk) Close() error {

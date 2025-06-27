@@ -5,37 +5,28 @@ package vhdx
 
 import (
 	"fmt"
+	"syscall"
 
 	"github.com/Microsoft/go-winio/vhd"
 )
 
-// VirtualDisk はWindows環境でのみ使用するgo-winio VHD handle。
-type VirtualDisk = vhd.VirtualDisk
+// VirtualDisk はWindows環境でのみ使用するsyscall.Handle。
+type VirtualDisk = syscall.Handle
 
 // createVHDXWithGoWinio はgo-winioを使用してVHDXを作成する（Windows専用）。
 func (v *VHDXManager) createVHDXWithGoWinio() error {
 	sizeInBytes := v.parseSizeToBytes()
 	
-	// VHDX作成のパラメータを設定。
-	params := &vhd.CreateVirtualDiskParameters{
-		Version: 1,
-		UniqueId: nil, // 自動生成
-		MaximumSize: sizeInBytes,
-		BlockSizeInBytes: 0, // デフォルト値を使用
-		SectorSizeInBytes: 0, // デフォルト値を使用
-		ParentPath: "",
-		SourcePath: "",
+	// 簡易VHDX作成（go-winioのヘルパー関数を使用）。
+	sizeInGB := uint32(sizeInBytes / (1024 * 1024 * 1024))
+	if sizeInGB == 0 {
+		sizeInGB = 1 // 最小1GB
 	}
-
-	// VHDXファイルを作成。
-	handle, err := vhd.CreateVirtualDisk(v.VHDXPath, vhd.VirtualDiskAccessNone, vhd.CreateVirtualDiskFlagNone, params)
+	
+	err := vhd.CreateVhdx(v.VHDXPath, sizeInGB, 0) // 0 = デフォルトブロックサイズ
 	if err != nil {
 		return fmt.Errorf("failed to create VHDX with go-winio: %w", err)
 	}
-	
-	// ハンドルを保存してクローズ。
-	v.handle = handle
-	defer v.handle.Close()
 
 	// VHDX作成後、フォーマットとマウントを実行。
 	return v.initializeAndFormatVHDX()
@@ -43,18 +34,9 @@ func (v *VHDXManager) createVHDXWithGoWinio() error {
 
 // mountVHDXWithGoWinio はgo-winioを使用してVHDXをマウントする（Windows専用）。
 func (v *VHDXManager) mountVHDXWithGoWinio() error {
-	// VHDXをオープン。
-	handle, err := vhd.OpenVirtualDisk(v.VHDXPath, vhd.VirtualDiskAccessNone, vhd.OpenVirtualDiskFlagNone)
+	// 簡易VHDアタッチ（go-winioのヘルパー関数を使用）。
+	err := vhd.AttachVhd(v.VHDXPath)
 	if err != nil {
-		return fmt.Errorf("failed to open VHDX with go-winio: %w", err)
-	}
-	
-	v.handle = handle
-	
-	// VHDXをアタッチ。
-	err = handle.Attach(vhd.AttachVirtualDiskFlagNone, nil)
-	if err != nil {
-		handle.Close()
 		return fmt.Errorf("failed to attach VHDX with go-winio: %w", err)
 	}
 
@@ -64,49 +46,26 @@ func (v *VHDXManager) mountVHDXWithGoWinio() error {
 
 // unmountVHDXWithGoWinio はgo-winioを使用してVHDXをアンマウントする（Windows専用）。
 func (v *VHDXManager) unmountVHDXWithGoWinio() error {
-	// 既存のハンドルがあるかチェック（ゼロ値と比較）。
-	zeroHandle := vhd.VirtualDisk{}
-	if v.handle == zeroHandle {
-		handle, err := vhd.OpenVirtualDisk(v.VHDXPath, vhd.VirtualDiskAccessNone, vhd.OpenVirtualDiskFlagNone)
-		if err != nil {
-			return fmt.Errorf("failed to open VHDX for unmount: %w", err)
-		}
-		v.handle = handle
-	}
-
-	// VHDXをデタッチ。
-	err := v.handle.Detach()
+	// 簡易VHDデタッチ（go-winioのヘルパー関数を使用）。
+	err := vhd.DetachVhd(v.VHDXPath)
 	if err != nil {
 		return fmt.Errorf("failed to detach VHDX with go-winio: %w", err)
 	}
 
-	// ハンドルをクローズ。
-	v.handle.Close()
-	v.handle = zeroHandle
+	// ハンドルをリセット。
+	v.handle = 0
 
 	return nil
 }
 
 // createSnapshotWithGoWinio はgo-winioを使用してスナップショットを作成する（Windows専用）。
 func (v *VHDXManager) createSnapshotWithGoWinio(snapshotPath string) error {
-	// 差分VHDXを作成するパラメータを設定。
-	params := &vhd.CreateVirtualDiskParameters{
-		Version: 1,
-		UniqueId: nil, // 自動生成
-		MaximumSize: 0, // 親VHDXから継承
-		BlockSizeInBytes: 0, // デフォルト値を使用
-		SectorSizeInBytes: 0, // デフォルト値を使用
-		ParentPath: v.VHDXPath, // 親VHDXパス
-		SourcePath: "",
-	}
-
-	// 差分VHDXファイルを作成。
-	handle, err := vhd.CreateVirtualDisk(snapshotPath, vhd.VirtualDiskAccessNone, vhd.CreateVirtualDiskFlagNone, params)
+	// 差分VHDを作成（go-winioのヘルパー関数を使用）。
+	err := vhd.CreateDiffVhd(snapshotPath, v.VHDXPath, 0) // 0 = デフォルトブロックサイズ
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot with go-winio: %w", err)
 	}
 	
-	defer handle.Close()
 	return nil
 }
 
