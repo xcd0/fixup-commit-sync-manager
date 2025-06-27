@@ -362,7 +362,9 @@ func performInitialSync(cfg *Config, args *RunArgs) error {
 	// Ops リポジトリが存在しない場合は Dev からクローン。
 	opsRepoPath := cfg.OpsRepoPath
 	if cfg.VhdxPath != "" && cfg.MountPoint != "" {
-		opsRepoPath = filepath.Join(cfg.MountPoint, "ops-repo")
+		// Windowsドライブレター形式のマウントポイントに対応（例: "Q:" → "Q:\\devBaseName"）
+		devBaseName := filepath.Base(cfg.DevRepoPath)
+		opsRepoPath, _ = filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
 	}
 
 	if _, err := os.Stat(filepath.Join(opsRepoPath, ".git")); os.IsNotExist(err) {
@@ -463,7 +465,9 @@ func runPeriodicExecution(ctx context.Context, cfg *Config, args *RunArgs) error
 func executePeriodicSync(cfg *Config, args *RunArgs) error {
 	opsRepoPath := cfg.OpsRepoPath
 	if cfg.VhdxPath != "" && cfg.MountPoint != "" {
-		opsRepoPath = filepath.Join(cfg.MountPoint, "ops-repo")
+		// Windowsドライブレター形式のマウントポイントに対応（例: "Q:" → "Q:\\devBaseName"）
+		devBaseName := filepath.Base(cfg.DevRepoPath)
+		opsRepoPath, _ = filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
 	}
 
 	log.Printf("定期同期: %s -> %s", cfg.DevRepoPath, opsRepoPath)
@@ -481,7 +485,9 @@ func executePeriodicSync(cfg *Config, args *RunArgs) error {
 func executePeriodicFixup(cfg *Config, args *RunArgs) error {
 	opsRepoPath := cfg.OpsRepoPath
 	if cfg.VhdxPath != "" && cfg.MountPoint != "" {
-		opsRepoPath = filepath.Join(cfg.MountPoint, "ops-repo")
+		// Windowsドライブレター形式のマウントポイントに対応（例: "Q:" → "Q:\\devBaseName"）
+		devBaseName := filepath.Base(cfg.DevRepoPath)
+		opsRepoPath, _ = filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
 	}
 
 	log.Printf("fixup処理を実行します: %s", opsRepoPath)

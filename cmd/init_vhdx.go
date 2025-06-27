@@ -60,7 +60,9 @@ func runInitVHDX(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  1. Create VHDX file: %s\n", cfg.VHDXPath)
 		fmt.Printf("  2. Mount VHDX to: %s\n", cfg.MountPoint)
 		fmt.Printf("  3. Clone repository from: %s\n", cfg.DevRepoPath)
-		fmt.Printf("  4. Set up Ops repository at: %s\n", filepath.Join(cfg.MountPoint, "ops-repo"))
+		devBaseNameDryRun := filepath.Base(cfg.DevRepoPath)
+		opsRepoPathDryRun, _ := filepath.Abs(filepath.Join(cfg.MountPoint, devBaseNameDryRun))
+		fmt.Printf("  4. Set up Ops repository at: %s\n", opsRepoPathDryRun)
 		fmt.Printf("  5. Unmount VHDX\n")
 		return nil
 	}
@@ -88,7 +90,9 @@ func runInitVHDX(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	opsRepoPath := filepath.Join(cfg.MountPoint, "ops-repo")
+	// Windowsドライブレター形式のマウントポイントに対応（例: "Q:" → "Q:\\devBaseName"）
+	devBaseName := filepath.Base(cfg.DevRepoPath)
+	opsRepoPath, _ := filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
 
 	if verbose {
 		fmt.Printf("Step 3: Cloning repository to: %s\n", opsRepoPath)

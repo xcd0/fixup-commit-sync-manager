@@ -87,7 +87,8 @@ func gatherConfigInteractivelyWithWorkDir(workDir, defaultLogPath string) *confi
 	// Opsリポジトリパスを自動生成
 	if cfg.DevRepoPath != "" {
 		devBaseName := filepath.Base(cfg.DevRepoPath)
-		cfg.OpsRepoPath = filepath.ToSlash(filepath.Join(cfg.MountPoint, devBaseName))
+		p, _ := filepath.Abs(filepath.Join(cfg.MountPoint, devBaseName))
+		cfg.OpsRepoPath = filepath.ToSlash(p)
 		fmt.Printf("    Opsリポジトリパス（自動生成）: %s\n", cfg.OpsRepoPath)
 	}
 
