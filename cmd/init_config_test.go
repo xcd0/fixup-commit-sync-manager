@@ -26,8 +26,7 @@ func TestGenerateHJSONTemplate(t *testing.T) {
 		"/path/to/ops",
 		"Auto-sync: ${timestamp} @ ${hash}",
 		"fixup! ",
-		"sync-branch",
-		"main",
+		"dynamic", // ブランチは動的追従
 		"/path/to/test.vhdx",
 		"X:",
 	}

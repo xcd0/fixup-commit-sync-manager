@@ -53,8 +53,8 @@ func TestSetupOpsRepository(t *testing.T) {
 
 	cfg := &config.Config{
 		GitExecutable: "git",
-		TargetBranch:  "test-branch",
-		BaseBranch:    "main",
+		DevRepoPath:   "/tmp/dev",
+		OpsRepoPath:   opsRepo,
 	}
 
 	err := setupOpsRepository(opsRepo, cfg)

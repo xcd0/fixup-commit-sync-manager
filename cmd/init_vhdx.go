@@ -164,13 +164,8 @@ func setupOpsRepository(opsRepoPath string, cfg *config.Config) error {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	if currentBranch != cfg.TargetBranch {
-		if err := gitCmd("checkout", "-b", cfg.TargetBranch); err != nil {
-			if err := gitCmd("checkout", cfg.TargetBranch); err != nil {
-				return fmt.Errorf("failed to create/checkout target branch: %w", err)
-			}
-		}
-	}
+	// 動的ブランチ追従により、固定ブランチへの切り替えは不要。
+	fmt.Printf("Current branch: %s (will track dynamically)\n", currentBranch)
 
 	return nil
 }

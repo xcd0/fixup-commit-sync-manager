@@ -75,15 +75,8 @@ func gatherConfigInteractively() *config.Config {
 		cfg.FixupInterval = strings.TrimSpace(input)
 	}
 
-	fmt.Printf("Enter target branch [%s]: ", cfg.TargetBranch)
-	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
-		cfg.TargetBranch = strings.TrimSpace(input)
-	}
-
-	fmt.Printf("Enter base branch [%s]: ", cfg.BaseBranch)
-	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
-		cfg.BaseBranch = strings.TrimSpace(input)
-	}
+	// ブランチ設定は動的追従により不要になった。
+	fmt.Println("Branch configuration: Using dynamic tracking from Dev repository (no manual configuration needed)")
 
 	fmt.Printf("Enter log file path [%s]: ", cfg.LogFilePath)
 	if input, _ := reader.ReadString('\n'); strings.TrimSpace(input) != "" {
@@ -149,8 +142,7 @@ func generateHJSONTemplate(cfg *config.Config) string {
   "fixupInterval": "%s",      // Fixup commit interval
   "fixupMessagePrefix": "%s", // Fixup commit message prefix
   "autosquashEnabled": %t,    // Enable --autosquash flag
-  "targetBranch": "%s",       // Target branch for sync
-  "baseBranch": "%s",         // Base branch for fixup
+  // Note: Branch settings are now dynamic - automatically tracks Dev repository's current branch
 
   // === Retry and Error Handling ===
   "maxRetries": %d,           // Maximum retry attempts
@@ -180,8 +172,6 @@ func generateHJSONTemplate(cfg *config.Config) string {
 		cfg.FixupInterval,
 		cfg.FixupMsgPrefix,
 		cfg.AutosquashEnabled,
-		cfg.TargetBranch,
-		cfg.BaseBranch,
 		cfg.MaxRetries,
 		cfg.RetryDelay,
 		cfg.LogLevel,

@@ -57,8 +57,7 @@ func runSingleFixup(fixupManager *fixup.FixupManager, cfg *config.Config) error 
 	if cfg.Verbose {
 		fmt.Println("Starting fixup operation...")
 		fmt.Printf("Ops Repository: %s\n", cfg.OpsRepoPath)
-		fmt.Printf("Target Branch: %s\n", cfg.TargetBranch)
-		fmt.Printf("Base Branch: %s\n", cfg.BaseBranch)
+		fmt.Println("Using dynamic branch tracking from Dev repository")
 		fmt.Printf("Autosquash Enabled: %t\n", cfg.AutosquashEnabled)
 	}
 
