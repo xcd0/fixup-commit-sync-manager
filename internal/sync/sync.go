@@ -35,6 +35,17 @@ func (s *FileSyncer) Sync() (*SyncResult, error) {
 		return nil, fmt.Errorf("repository validation failed: %w", err)
 	}
 
+	// Dev側のカレントブランチを取得。
+	devBranch, err := s.getDevCurrentBranch()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dev current branch: %w", err)
+	}
+
+	// Ops側を同じブランチに切り替え。
+	if err := s.ensureOpsBranch(devBranch); err != nil {
+		return nil, fmt.Errorf("failed to ensure ops branch: %w", err)
+	}
+
 	changes, err := s.detectChanges()
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect changes: %w", err)
@@ -114,11 +125,18 @@ func (s *FileSyncer) detectChanges() (*SyncResult, error) {
 }
 
 func (s *FileSyncer) getTrackedChanges() ([]string, error) {
-	cmd := exec.Command(s.cfg.GitExecutable, "diff", "--name-only", "HEAD")
+	// 直前のコミットとの差分を取得。
+	cmd := exec.Command(s.cfg.GitExecutable, "diff", "--name-only", "HEAD^")
 	cmd.Dir = s.cfg.DevRepoPath
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("git diff failed: %w", err)
+		// HEAD^が存在しない場合（初回コミット）は全ファイルを対象とする。
+		cmd = exec.Command(s.cfg.GitExecutable, "diff", "--name-only", "--cached")
+		cmd.Dir = s.cfg.DevRepoPath
+		output, err = cmd.Output()
+		if err != nil {
+			return nil, fmt.Errorf("git diff failed: %w", err)
+		}
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
@@ -338,4 +356,116 @@ func (s *FileSyncer) generateCommitMessage(changes *SyncResult) string {
 		totalFiles, len(changes.FilesAdded), len(changes.FilesModified), len(changes.FilesDeleted))
 
 	return message + summary
+}
+
+// getDevCurrentBranch はDev側のカレントブランチを取得する。
+func (s *FileSyncer) getDevCurrentBranch() (string, error) {
+	cmd := exec.Command(s.cfg.GitExecutable, "branch", "--show-current")
+	cmd.Dir = s.cfg.DevRepoPath
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current branch from dev repo: %w", err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// ensureOpsBranch はOps側を指定されたブランチに切り替える。
+func (s *FileSyncer) ensureOpsBranch(targetBranch string) error {
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+	defer os.Chdir(originalDir)
+
+	if err := os.Chdir(s.cfg.OpsRepoPath); err != nil {
+		return fmt.Errorf("failed to change to ops repository: %w", err)
+	}
+
+	// 現在のブランチを確認。
+	currentBranch, err := s.getOpsCurrentBranch()
+	if err != nil {
+		return fmt.Errorf("failed to get current ops branch: %w", err)
+	}
+
+	// 既に目的のブランチにいる場合はスキップ。
+	if currentBranch == targetBranch {
+		return nil
+	}
+
+	// ブランチの存在確認。
+	if err := s.ensureBranchExists(targetBranch); err != nil {
+		return fmt.Errorf("failed to ensure branch exists: %w", err)
+	}
+
+	// ブランチ切り替え。
+	if err := s.gitCheckout(targetBranch); err != nil {
+		return fmt.Errorf("failed to checkout branch %s: %w", targetBranch, err)
+	}
+
+	return nil
+}
+
+// getOpsCurrentBranch はOps側のカレントブランチを取得する。
+func (s *FileSyncer) getOpsCurrentBranch() (string, error) {
+	cmd := exec.Command(s.cfg.GitExecutable, "branch", "--show-current")
+	cmd.Dir = s.cfg.OpsRepoPath
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current branch from ops repo: %w", err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// ensureBranchExists は指定されたブランチが存在することを確認し、必要に応じて作成する。
+func (s *FileSyncer) ensureBranchExists(branchName string) error {
+	// ローカルブランチの存在確認。
+	cmd := exec.Command(s.cfg.GitExecutable, "show-ref", "--verify", "--quiet", "refs/heads/"+branchName)
+	cmd.Dir = s.cfg.OpsRepoPath
+	if err := cmd.Run(); err == nil {
+		return nil // ブランチが存在する。
+	}
+
+	// リモートブランチの存在確認。
+	cmd = exec.Command(s.cfg.GitExecutable, "show-ref", "--verify", "--quiet", "refs/remotes/origin/"+branchName)
+	cmd.Dir = s.cfg.OpsRepoPath
+	if err := cmd.Run(); err == nil {
+		// リモートブランチから作成。
+		return s.gitCreateBranchFromRemote(branchName)
+	}
+
+	// ブランチが存在しない場合は新規作成。
+	return s.gitCreateBranch(branchName)
+}
+
+// gitCreateBranch は新しいブランチを作成する。
+func (s *FileSyncer) gitCreateBranch(branchName string) error {
+	cmd := exec.Command(s.cfg.GitExecutable, "checkout", "-b", branchName)
+	cmd.Dir = s.cfg.OpsRepoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to create branch %s: %w, output: %s", branchName, err, string(output))
+	}
+	return nil
+}
+
+// gitCreateBranchFromRemote はリモートブランチから新しいローカルブランチを作成する。
+func (s *FileSyncer) gitCreateBranchFromRemote(branchName string) error {
+	cmd := exec.Command(s.cfg.GitExecutable, "checkout", "-b", branchName, "origin/"+branchName)
+	cmd.Dir = s.cfg.OpsRepoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to create branch %s from remote: %w, output: %s", branchName, err, string(output))
+	}
+	return nil
+}
+
+// gitCheckout は指定されたブランチに切り替える。
+func (s *FileSyncer) gitCheckout(branchName string) error {
+	cmd := exec.Command(s.cfg.GitExecutable, "checkout", branchName)
+	cmd.Dir = s.cfg.OpsRepoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to checkout branch %s: %w, output: %s", branchName, err, string(output))
+	}
+	return nil
 }

@@ -30,6 +30,16 @@ func (f *FixupManager) RunFixup() (*FixupResult, error) {
 		return nil, fmt.Errorf("repository validation failed: %w", err)
 	}
 
+	// Dev側のカレントブランチを取得してOps側も同じブランチに切り替え。
+	devBranch, err := f.getDevCurrentBranch()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dev current branch: %w", err)
+	}
+
+	if err := f.ensureOpsBranch(devBranch); err != nil {
+		return nil, fmt.Errorf("failed to ensure ops branch: %w", err)
+	}
+
 	hasChanges, err := f.hasUncommittedChanges()
 	if err != nil {
 		return nil, fmt.Errorf("failed to check for uncommitted changes: %w", err)
@@ -88,27 +98,12 @@ func (f *FixupManager) validateRepository() error {
 		return fmt.Errorf("failed to change to ops repository: %w", err)
 	}
 
-	if err := f.ensureOnTargetBranch(); err != nil {
-		return fmt.Errorf("failed to ensure on target branch: %w", err)
-	}
+	// 動的ブランチ追従により、ensureOnTargetBranchは不要になった。
 
 	return nil
 }
 
-func (f *FixupManager) ensureOnTargetBranch() error {
-	currentBranch, err := f.getCurrentBranch()
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-
-	if currentBranch != f.cfg.TargetBranch {
-		if err := f.gitCheckoutBranch(f.cfg.TargetBranch); err != nil {
-			return fmt.Errorf("failed to checkout target branch %s: %w", f.cfg.TargetBranch, err)
-		}
-	}
-
-	return nil
-}
+// ensureOnTargetBranch は動的ブランチ追従により削除。
 
 func (f *FixupManager) getCurrentBranch() (string, error) {
 	cmd := exec.Command(f.cfg.GitExecutable, "branch", "--show-current")
@@ -142,11 +137,13 @@ func (f *FixupManager) hasUncommittedChanges() (bool, error) {
 }
 
 func (f *FixupManager) getBaseCommit() (string, error) {
-	cmd := exec.Command(f.cfg.GitExecutable, "merge-base", "HEAD", f.cfg.BaseBranch)
+	// 直前のコミットを取得する。
+	cmd := exec.Command(f.cfg.GitExecutable, "rev-parse", "HEAD~1")
 	cmd.Dir = f.cfg.OpsRepoPath
 	output, err := cmd.Output()
 	if err != nil {
-		cmd = exec.Command(f.cfg.GitExecutable, "rev-parse", "HEAD~1")
+		// HEAD~1が存在しない場合（初回コミット）はHEADを使用。
+		cmd = exec.Command(f.cfg.GitExecutable, "rev-parse", "HEAD")
 		cmd.Dir = f.cfg.OpsRepoPath
 		output, err = cmd.Output()
 		if err != nil {
@@ -244,6 +241,96 @@ func (f *FixupManager) generateFixupMessage(baseCommit string) string {
 	return message
 }
 
+// getDevCurrentBranch はDev側のカレントブランチを取得する。
+func (f *FixupManager) getDevCurrentBranch() (string, error) {
+	cmd := exec.Command(f.cfg.GitExecutable, "branch", "--show-current")
+	cmd.Dir = f.cfg.DevRepoPath
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current branch from dev repo: %w", err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// ensureOpsBranch はOps側を指定されたブランチに切り替える。
+func (f *FixupManager) ensureOpsBranch(targetBranch string) error {
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+	defer os.Chdir(originalDir)
+
+	if err := os.Chdir(f.cfg.OpsRepoPath); err != nil {
+		return fmt.Errorf("failed to change to ops repository: %w", err)
+	}
+
+	// 現在のブランチを確認。
+	currentBranch, err := f.getCurrentBranch()
+	if err != nil {
+		return fmt.Errorf("failed to get current ops branch: %w", err)
+	}
+
+	// 既に目的のブランチにいる場合はスキップ。
+	if currentBranch == targetBranch {
+		return nil
+	}
+
+	// ブランチの存在確認。
+	if err := f.ensureBranchExists(targetBranch); err != nil {
+		return fmt.Errorf("failed to ensure branch exists: %w", err)
+	}
+
+	// ブランチ切り替え。
+	if err := f.gitCheckoutBranch(targetBranch); err != nil {
+		return fmt.Errorf("failed to checkout branch %s: %w", targetBranch, err)
+	}
+
+	return nil
+}
+
+// ensureBranchExists は指定されたブランチが存在することを確認し、必要に応じて作成する。
+func (f *FixupManager) ensureBranchExists(branchName string) error {
+	// ローカルブランチの存在確認。
+	cmd := exec.Command(f.cfg.GitExecutable, "show-ref", "--verify", "--quiet", "refs/heads/"+branchName)
+	cmd.Dir = f.cfg.OpsRepoPath
+	if err := cmd.Run(); err == nil {
+		return nil // ブランチが存在する。
+	}
+
+	// リモートブランチの存在確認。
+	cmd = exec.Command(f.cfg.GitExecutable, "show-ref", "--verify", "--quiet", "refs/remotes/origin/"+branchName)
+	cmd.Dir = f.cfg.OpsRepoPath
+	if err := cmd.Run(); err == nil {
+		// リモートブランチから作成。
+		return f.gitCreateBranchFromRemote(branchName)
+	}
+
+	// ブランチが存在しない場合は新規作成。
+	return f.gitCreateBranch(branchName)
+}
+
+// gitCreateBranch は新しいブランチを作成する。
+func (f *FixupManager) gitCreateBranch(branchName string) error {
+	cmd := exec.Command(f.cfg.GitExecutable, "checkout", "-b", branchName)
+	cmd.Dir = f.cfg.OpsRepoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to create branch %s: %w, output: %s", branchName, err, string(output))
+	}
+	return nil
+}
+
+// gitCreateBranchFromRemote はリモートブランチから新しいローカルブランチを作成する。
+func (f *FixupManager) gitCreateBranchFromRemote(branchName string) error {
+	cmd := exec.Command(f.cfg.GitExecutable, "checkout", "-b", branchName, "origin/"+branchName)
+	cmd.Dir = f.cfg.OpsRepoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to create branch %s from remote: %w, output: %s", branchName, err, string(output))
+	}
+	return nil
+}
+
 func (f *FixupManager) RunContinuousFixup() error {
 	interval, err := f.cfg.GetFixupIntervalDuration()
 	if err != nil {
@@ -252,8 +339,8 @@ func (f *FixupManager) RunContinuousFixup() error {
 
 	fmt.Printf("Starting continuous fixup with interval: %s\n", f.cfg.FixupInterval)
 	fmt.Printf("Ops Repository: %s\n", f.cfg.OpsRepoPath)
-	fmt.Printf("Target Branch: %s\n", f.cfg.TargetBranch)
-	fmt.Printf("Base Branch: %s\n", f.cfg.BaseBranch)
+	// 動的ブランチ追従により、固定ブランチ名の表示は削除。
+	fmt.Println("Using dynamic branch tracking from Dev repository")
 	fmt.Println("Press Ctrl+C to stop")
 
 	ticker := time.NewTicker(interval)
