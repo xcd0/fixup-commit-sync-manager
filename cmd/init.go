@@ -30,7 +30,7 @@ VHDXの初期化は別途 init-vhdx コマンドで実行してください。`,
 }
 
 func init() {
-	rootCmd.AddCommand(initCmd)
+	// initCmdはroot.goで登録されるため、ここでは追加しない
 }
 
 // runInit は初期セットアップを実行する。

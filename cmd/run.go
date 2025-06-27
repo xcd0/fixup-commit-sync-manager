@@ -112,7 +112,7 @@ type RunArgs struct {
 }
 
 func init() {
-	rootCmd.AddCommand(runCmd)
+	// runCmdはroot.goで登録されるため、ここでは追加しない
 	
 	// フラグの追加。
 	runCmd.Flags().StringP("config", "c", "", "設定ファイルのパス")
