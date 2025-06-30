@@ -1,0 +1,36 @@
+# テスト実行時に生成される一時ファイル
+*.vhdx
+*.vhd
+*.log
+*.tmp
+
+# テスト用リポジトリ
+repos/dev-repo/
+repos/ops-repo/
+repos/test-repo/
+
+# VHDX関連
+vhdx/*.vhdx
+vhdx/*.vhd
+vhdx/snapshots/
+
+# 一時データ
+temp/
+data/temp/
+
+# Windows固有
+Thumbs.db
+desktop.ini
+
+# PowerShellスクリプト実行ファイル
+*.ps1.tmp
+diskpart_*.txt
+
+# テスト結果
+test-results/
+coverage.out
+coverage.html
+
+# バックアップファイル
+*.backup
+*.bak

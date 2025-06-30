@@ -1,0 +1,28 @@
+{
+  // テスト用設定ファイル
+  "devRepoPath": "./test/repos/dev-repo",
+  "opsRepoPath": "./test/repos/ops-repo",
+  
+  // 同期設定
+  "syncInterval": "1m",
+  "includeExtensions": [".go", ".txt", ".md"],
+  "excludePatterns": ["*.tmp", "test/**"],
+  
+  // Fixup設定
+  "fixupInterval": "30s",
+  "autosquashEnabled": true,
+  
+  // VHDX設定（テスト用）
+  "vhdxPath": "./test/vhdx/test.vhdx",
+  "mountPoint": "T:",
+  "vhdxSize": "1GB",
+  "encryptionEnabled": false,
+  
+  // Git設定
+  "gitExecutable": "git",
+  
+  // ログ設定
+  "logLevel": "DEBUG",
+  "logFilePath": "./test/temp/test.log",
+  "verbose": true
+}

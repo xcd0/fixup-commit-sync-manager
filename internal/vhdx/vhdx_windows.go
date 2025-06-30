@@ -23,6 +23,7 @@ func (v *VHDXManager) createVHDXWithGoWinio() error {
 		sizeInGB = 1 // 最小1GB
 	}
 	
+	// CreateVhdxヘルパー関数を使用（より簡単なAPI）。
 	err := vhd.CreateVhdx(v.VHDXPath, sizeInGB, 0) // 0 = デフォルトブロックサイズ
 	if err != nil {
 		return fmt.Errorf("failed to create VHDX with go-winio: %w", err)
