@@ -4,10 +4,22 @@
 *.log
 *.tmp
 
-# テスト用リポジトリ
+# テスト用リポジトリ（Gitサブモジュール問題を回避）
+repos/
+test/repos/
+**/repos/
+repos/**
+*/repos/**
+
+# 明示的にテスト用リポジトリを除外
 repos/dev-repo/
 repos/ops-repo/
 repos/test-repo/
+repos/mini-*/
+repos/sync-*/
+repos/fixup-*/
+repos/timed-*/
+repos/integrated-*/
 
 # VHDX関連
 vhdx/*.vhdx
