@@ -107,17 +107,17 @@ release: clean release-win release-linux ## 両OS用リリース一括ビルド�
 # ============================================================================
 test: ## テスト実行。
 	@echo "テストを実行中..."
-	go test -v ./...
+	GOOS=windows go test -v ./...
 
 test-coverage: ## テストカバレッジを計測。
 	@echo "テストカバレッジを計測中..."
-	go test -coverprofile=coverage.out ./...
+	GOOS=windows go test -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "カバレッジレポート: coverage.html"
 
 benchmark: ## ベンチマークテスト実行。
 	@echo "ベンチマークテストを実行中..."
-	go test -bench=. -benchmem ./...
+	GOOS=windows go test -bench=. -benchmem ./...
 
 lint: ## リント実行。
 	@echo "リントを実行中..."

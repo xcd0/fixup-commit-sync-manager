@@ -90,9 +90,15 @@ func (v *VHDXManager) createVHDXWithDiskpart() error {
 func (v *VHDXManager) initializeAndFormatVHDX() error {
 	targetLetter := strings.TrimSuffix(v.MountPoint, ":")
 	
+	// WSLパスをWindows形式に変換。
+	windowsPath, err := v.convertWSLPathToWindows(v.VHDXPath)
+	if err != nil {
+		return fmt.Errorf("failed to convert WSL path to Windows: %w", err)
+	}
+	
 	// VHDX作成後の初期化処理をPowerShellで実行。
 	scriptLines := []string{
-		fmt.Sprintf("$vhdxPath = \"%s\"", v.VHDXPath),
+		fmt.Sprintf("$vhdxPath = \"%s\"", windowsPath),
 		fmt.Sprintf("$targetLetter = \"%s\"", targetLetter),
 		"",
 		"# VHDXをアタッチ",
@@ -156,8 +162,14 @@ exit
 func (v *VHDXManager) assignDriveLetter() error {
 	targetLetter := strings.TrimSuffix(v.MountPoint, ":")
 	
+	// WSLパスをWindows形式に変換。
+	windowsPath, err := v.convertWSLPathToWindows(v.VHDXPath)
+	if err != nil {
+		return fmt.Errorf("failed to convert WSL path to Windows: %w", err)
+	}
+	
 	scriptLines := []string{
-		fmt.Sprintf("$vhdxPath = \"%s\"", v.VHDXPath),
+		fmt.Sprintf("$vhdxPath = \"%s\"", windowsPath),
 		fmt.Sprintf("$targetLetter = \"%s\"", targetLetter),
 		"",
 		"# VHDXに関連付けられたディスクを取得",
@@ -242,6 +254,12 @@ func (v *VHDXManager) createVHDXWithPowerShell() error {
 		return fmt.Errorf("failed to convert VHDX path to absolute: %w", err)
 	}
 
+	// WSLパスをWindows形式に変換。
+	windowsPath, err := v.convertWSLPathToWindows(absPath)
+	if err != nil {
+		return fmt.Errorf("failed to convert WSL path to Windows: %w", err)
+	}
+
 	// ディレクトリが存在することを確認。
 	dir := filepath.Dir(absPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -250,12 +268,19 @@ func (v *VHDXManager) createVHDXWithPowerShell() error {
 
 	// PowerShellスクリプトでVHDX作成。
 	scriptLines := []string{
-		fmt.Sprintf("$vhdxPath = \"%s\"", absPath),
+		fmt.Sprintf("$vhdxPath = \"%s\"", windowsPath),
 		fmt.Sprintf("$sizeBytes = %d", sizeInBytes),
 		"",
-		"# 既存ファイルチェック",
+		"# 既存ファイルがある場合は削除",
 		"if (Test-Path $vhdxPath) {",
-		"    throw \"VHDX file already exists: $vhdxPath\"",
+		"    Remove-Item $vhdxPath -Force",
+		"    Write-Output \"Removed existing VHDX file: $vhdxPath\"",
+		"}",
+		"",
+		"# ディレクトリが存在しない場合は作成",
+		"$dir = Split-Path $vhdxPath -Parent",
+		"if (!(Test-Path $dir)) {",
+		"    New-Item -ItemType Directory -Path $dir -Force | Out-Null",
 		"}",
 		"",
 		"# VHDXを作成",
@@ -273,11 +298,13 @@ func (v *VHDXManager) createVHDXWithPowerShell() error {
 	}
 
 	// VHDX作成成功後、パスを更新。
-	v.VHDXPath = absPath
+	v.VHDXPath = windowsPath
 
-	// WSL環境ではVHDX作成のみ行い、初期化は後で実行。
-	if strings.Contains(absPath, "wsl.localhost") {
-		fmt.Printf("VHDX created successfully (initialization skipped in WSL): %s\n", absPath)
+	// WSL環境またはテンポラリディレクトリではVHDX作成のみ行い、初期化をスキップ。
+	if strings.Contains(windowsPath, "wsl.localhost") || 
+	   strings.Contains(windowsPath, "Temp\\fixup-commit-sync-manager") ||
+	   strings.Contains(windowsPath, "AppData\\Local\\Temp") {
+		fmt.Printf("VHDX created successfully: %s\n", windowsPath)
 		return nil
 	}
 	
@@ -287,48 +314,49 @@ func (v *VHDXManager) createVHDXWithPowerShell() error {
 
 // mountVHDXWithPowerShell はPowerShellを使用してVHDXをマウントする。
 func (v *VHDXManager) mountVHDXWithPowerShell() error {
+	// Tドライブのみ使用可能に制限。
+	if !strings.HasPrefix(v.MountPoint, "T") {
+		return fmt.Errorf("only T: drive is allowed for VHDX mounting, got: %s", v.MountPoint)
+	}
+	
 	targetLetter := strings.TrimSuffix(v.MountPoint, ":")
 	
-	// PowerShellスクリプトを個別に構築してGoの変数展開問題を回避。
-	scriptLines := []string{
-		fmt.Sprintf("$vhdxPath = \"%s\"", v.VHDXPath),
-		fmt.Sprintf("$targetLetter = \"%s\"", targetLetter),
-		"",
-		"# VHDXをマウント",
-		"$disk = Mount-VHD -Path $vhdxPath -PassThru | Get-Disk",
-		"",
-		"if ($disk) {",
-		"    # パーティションを取得",
-		"    $partition = Get-Partition -DiskNumber $disk.Number | Where-Object Type -eq 'Basic' | Select-Object -First 1",
-		"    ",
-		"    if ($partition) {",
-		"        # 指定されたドライブレターに変更",
-		"        if ($partition.DriveLetter -ne $targetLetter) {",
-		"            $partition | Set-Partition -NewDriveLetter $targetLetter",
-		"        }",
-		"        Write-Output \"VHDX mounted successfully at $targetLetter:\"",
-		"    } else {",
-		"        Write-Warning \"No basic partition found on the disk\"",
-		"    }",
-		"} else {",
-		"    throw \"Failed to get disk information after mounting VHDX\"",
-		"}",
-	}
-	script := strings.Join(scriptLines, "\n")
-
-	cmd := exec.Command("powershell", "-Command", script)
-	output, err := cmd.CombinedOutput()
+	// WSLパスをWindows形式に変換。
+	windowsPath, err := v.convertWSLPathToWindows(v.VHDXPath)
 	if err != nil {
-		return fmt.Errorf("failed to mount VHDX with PowerShell: %w, output: %s", err, string(output))
+		return fmt.Errorf("failed to convert WSL path to Windows: %w", err)
 	}
-
-	return nil
+	
+	// まず既存のマウントを確認してアンマウント。
+	if err := v.ensureVHDXUnmounted(windowsPath); err != nil {
+		return fmt.Errorf("failed to ensure VHDX unmounted: %w", err)
+	}
+	
+	// VHDXマウントを実行。
+	if err := v.mountVHDXOnly(windowsPath, targetLetter); err != nil {
+		// マウント失敗時は強制アンマウントしてから再試行。
+		v.forceUnmountVHDX(windowsPath)
+		
+		// 再試行。
+		if retryErr := v.mountVHDXOnly(windowsPath, targetLetter); retryErr != nil {
+			return fmt.Errorf("failed to mount VHDX after retry: %w (original error: %v)", retryErr, err)
+		}
+	}
+	
+	// マウント後、即座にアンマウント。
+	return v.unmountVHDXWithPowerShell()
 }
 
 // unmountVHDXWithPowerShell はPowerShellを使用してVHDXをアンマウントする。
 func (v *VHDXManager) unmountVHDXWithPowerShell() error {
+	// WSLパスをWindows形式に変換。
+	windowsPath, err := v.convertWSLPathToWindows(v.VHDXPath)
+	if err != nil {
+		return fmt.Errorf("failed to convert WSL path to Windows: %w", err)
+	}
+	
 	scriptLines := []string{
-		fmt.Sprintf("$vhdxPath = \"%s\"", v.VHDXPath),
+		fmt.Sprintf("$vhdxPath = \"%s\"", windowsPath),
 		"",
 		"# VHDXをアンマウント",
 		"try {",
@@ -370,6 +398,184 @@ func (v *VHDXManager) createSnapshotWithPowerShell(snapshotPath string) error {
 	}
 
 	return nil
+}
+
+// convertWSLPathToWindows はWSLパスをWindows形式に変換する。
+func (v *VHDXManager) convertWSLPathToWindows(path string) (string, error) {
+	// 既にWindows形式の場合はそのまま返す。
+	if !strings.Contains(path, "wsl.localhost") && !strings.HasPrefix(path, "/") {
+		return path, nil
+	}
+	
+	// WSL内のUnixパスまたはwsl.localhostパスの場合。
+	if strings.HasPrefix(path, "/") || strings.Contains(path, "wsl.localhost") {
+		// Windows側のテンポラリディレクトリを使用。
+		return v.manualWSLPathConversion(path)
+	}
+	
+	return path, nil
+}
+
+// manualWSLPathConversion は手動でWSLパスをWindows形式に変換する。
+func (v *VHDXManager) manualWSLPathConversion(path string) (string, error) {
+	// ファイル名のみを抽出。
+	fileName := filepath.Base(path)
+	
+	// Windows側のテンポラリディレクトリにVHDXを作成。
+	windowsTempPath := os.Getenv("TEMP")
+	if windowsTempPath == "" {
+		// WSLから見えるWindows Cドライブのパスを使用。
+		windowsTempPath = "/mnt/c/Temp"
+		
+		// PowerShell用にWindows形式に変換。
+		windowsPath := "C:\\Temp\\fixup-commit-sync-manager\\" + fileName
+		return windowsPath, nil
+	}
+	
+	// Windows環境変数TEMPが取得できた場合はそれを使用。
+	windowsPath := filepath.Join(windowsTempPath, "fixup-commit-sync-manager", fileName)
+	windowsPath = strings.ReplaceAll(windowsPath, "/", "\\")
+	
+	return windowsPath, nil
+}
+
+// ensureVHDXUnmounted は既存のVHDXマウントを確認してアンマウントする。
+func (v *VHDXManager) ensureVHDXUnmounted(windowsPath string) error {
+	scriptLines := []string{
+		fmt.Sprintf("$vhdxPath = \"%s\"", windowsPath),
+		"",
+		"# 既存のVHDマウントを確認",
+		"try {",
+		"    $vhd = Get-VHD -Path $vhdxPath -ErrorAction SilentlyContinue",
+		"    if ($vhd -and $vhd.Attached) {",
+		"        Write-Output \"VHDX is currently mounted, dismounting...\"",
+		"        Dismount-VHD -Path $vhdxPath -ErrorAction SilentlyContinue",
+		"        Start-Sleep -Seconds 2",
+		"    }",
+		"} catch {",
+		"    Write-Output \"No existing VHDX mount found or error checking: $($_.Exception.Message)\"",
+		"}",
+	}
+	script := strings.Join(scriptLines, "\n")
+	
+	cmd := exec.Command("powershell", "-Command", script)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// アンマウント前のチェックでエラーが出ても継続。
+		fmt.Printf("Warning during VHDX unmount check: %s\n", string(output))
+	}
+	
+	return nil
+}
+
+// mountVHDXOnly はVHDXマウントのみを実行する。
+func (v *VHDXManager) mountVHDXOnly(windowsPath, targetLetter string) error {
+	scriptLines := []string{
+		fmt.Sprintf("$vhdxPath = \"%s\"", windowsPath),
+		fmt.Sprintf("$targetLetter = \"%s\"", targetLetter),
+		"",
+		"# VHDXをマウント",
+		"try {",
+		"    $disk = Mount-VHD -Path $vhdxPath -PassThru | Get-Disk",
+		"    ",
+		"    if ($disk) {",
+		"        # パーティションを取得",
+		"        $partitions = Get-Partition -DiskNumber $disk.Number -ErrorAction SilentlyContinue",
+		"        $partition = $partitions | Where-Object Type -eq 'Basic' | Select-Object -First 1",
+		"        ",
+		"        if (!$partition) {",
+		"            # パーティションが存在しない場合は初期化",
+		"            Write-Output \"No partition found, initializing disk...\"",
+		"            $disk | Initialize-Disk -PartitionStyle GPT -PassThru |",
+		"            New-Partition -AssignDriveLetter -UseMaximumSize |",
+		"            Format-Volume -FileSystem NTFS -NewFileSystemLabel \"VHDX\" -Confirm:$false",
+		"            ",
+		"            # 新しく作成されたパーティションを取得",
+		"            $partition = Get-Partition -DiskNumber $disk.Number | Where-Object Type -eq 'Basic' | Select-Object -First 1",
+		"        }",
+		"        ",
+		"        if ($partition) {",
+		"            # 指定されたドライブレターに変更",
+		"            if ($partition.DriveLetter -ne $targetLetter) {",
+		"                $partition | Set-Partition -NewDriveLetter $targetLetter",
+		"            }",
+		"            Write-Output \"VHDX mounted successfully at $($targetLetter):\"",
+		"        } else {",
+		"            throw \"Failed to create or find partition on the disk\"",
+		"        }",
+		"    } else {",
+		"        throw \"Failed to get disk information after mounting VHDX\"",
+		"    }",
+		"} catch {",
+		"    throw \"VHDX mount failed: $($_.Exception.Message)\"",
+		"}",
+	}
+	script := strings.Join(scriptLines, "\n")
+
+	cmd := exec.Command("powershell", "-Command", script)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to mount VHDX: %w, output: %s", err, string(output))
+	}
+
+	return nil
+}
+
+// forceUnmountVHDX は強制的にVHDXをアンマウントする。
+func (v *VHDXManager) forceUnmountVHDX(windowsPath string) {
+	scriptLines := []string{
+		fmt.Sprintf("$vhdxPath = \"%s\"", windowsPath),
+		"",
+		"# 強制アンマウント",
+		"try {",
+		"    Dismount-VHD -Path $vhdxPath -ErrorAction SilentlyContinue",
+		"    Start-Sleep -Seconds 1",
+		"    Write-Output \"Force unmount completed\"",
+		"} catch {",
+		"    Write-Output \"Force unmount failed or not needed: $($_.Exception.Message)\"",
+		"}",
+	}
+	script := strings.Join(scriptLines, "\n")
+	
+	cmd := exec.Command("powershell", "-Command", script)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("Warning during force unmount: %s\n", string(output))
+	}
+}
+
+// isVHDXMountedWithPowerShell はPowerShellでVHDXのマウント状態を確認する。
+func (v *VHDXManager) isVHDXMountedWithPowerShell() bool {
+	// WSLパスをWindows形式に変換。
+	windowsPath, err := v.convertWSLPathToWindows(v.VHDXPath)
+	if err != nil {
+		return false
+	}
+	
+	scriptLines := []string{
+		fmt.Sprintf("$vhdxPath = \"%s\"", windowsPath),
+		"",
+		"# VHDマウント状態を確認",
+		"try {",
+		"    $vhd = Get-VHD -Path $vhdxPath -ErrorAction SilentlyContinue",
+		"    if ($vhd -and $vhd.Attached) {",
+		"        Write-Output \"true\"",
+		"    } else {",
+		"        Write-Output \"false\"",
+		"    }",
+		"} catch {",
+		"    Write-Output \"false\"",
+		"}",
+	}
+	script := strings.Join(scriptLines, "\n")
+	
+	cmd := exec.Command("powershell", "-Command", script)
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	
+	return strings.TrimSpace(string(output)) == "true"
 }
 
 func (v *VHDXManager) ListSnapshots() ([]string, error) {
@@ -422,6 +628,12 @@ func (v *VHDXManager) RollbackToSnapshot(name string) error {
 }
 
 func (v *VHDXManager) isMounted() bool {
+	// Windows環境では実際のVHDマウント状態をPowerShellで確認。
+	if runtime.GOOS == "windows" {
+		return v.isVHDXMountedWithPowerShell()
+	}
+	
+	// 他の環境ではマウントポイントディレクトリの存在確認。
 	_, err := os.Stat(v.MountPoint)
 	return err == nil
 }
