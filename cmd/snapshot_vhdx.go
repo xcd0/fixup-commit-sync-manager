@@ -51,6 +51,12 @@ func NewRollbackSnapshotCmd() *cobra.Command {
 		Long:  "VHDX ファイルを指定されたスナップショットにロールバックします",
 		Args:  cobra.ExactArgs(1),
 		RunE:  runRollbackSnapshot,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) != 0 {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			return getAvailableSnapshots(cmd), cobra.ShellCompDirectiveNoFileComp
+		},
 	}
 	return cmd
 }
@@ -147,6 +153,31 @@ func runListSnapshots(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// getAvailableSnapshots は利用可能なスナップショット名を取得する。
+func getAvailableSnapshots(cmd *cobra.Command) []string {
+	configPath, _ := cmd.Flags().GetString("config")
+	if configPath == "" {
+		configPath = "config.hjson"
+	}
+
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		return []string{}
+	}
+
+	if cfg.VHDXPath == "" {
+		return []string{}
+	}
+
+	vhdxManager := vhdx.NewVHDXManager(cfg.VHDXPath, cfg.MountPoint, cfg.VHDXSize, cfg.EncryptionEnabled)
+	snapshots, err := vhdxManager.ListSnapshots()
+	if err != nil {
+		return []string{}
+	}
+
+	return snapshots
 }
 
 func runRollbackSnapshot(cmd *cobra.Command, args []string) error {

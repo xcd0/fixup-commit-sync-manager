@@ -28,7 +28,8 @@ var rootCmd = &cobra.Command{
 - unmount-vhdx     : VHDX ファイルをアンマウント
 - snapshot-vhdx    : VHDX スナップショットを管理
 - sync             : リポジトリ間でファイルを同期
-- fixup            : fixup コミットを実行`,
+- fixup            : fixup コミットを実行
+- completion       : シェル補完スクリプトを生成`,
 	Version: "1.0.0",
 }
 
@@ -44,12 +45,18 @@ func init() {
 	rootCmd.PersistentFlags().Bool("dry-run", false, "実際の変更を行わずにプレビュー実行")
 	rootCmd.PersistentFlags().Bool("verbose", false, "詳細な出力を有効化")
 
+	// フラグ補完を設定
+	rootCmd.RegisterFlagCompletionFunc("config", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"hjson", "json"}, cobra.ShellCompDirectiveFilterFileExt
+	})
+
 	// ヘルプテンプレートを日本語化
 	rootCmd.SetUsageTemplate(getUsageTemplate())
 	rootCmd.SetHelpTemplate(getHelpTemplate())
 
-	// completion コマンドを無効化
+	// デフォルトのcompletion コマンドを無効化し、カスタム版を使用
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
+	rootCmd.CompletionOptions.DisableDescriptions = false
 	
 	// デフォルトのhelpコマンドを無効化して日本語版を追加
 	rootCmd.SetHelpCommand(&cobra.Command{
@@ -69,6 +76,7 @@ func init() {
 	rootCmd.AddCommand(NewSnapshotVHDXCmd())
 	rootCmd.AddCommand(NewSyncCmd())
 	rootCmd.AddCommand(NewFixupCmd())
+	rootCmd.AddCommand(NewCompletionCmd())
 }
 
 // getUsageTemplate は日本語化されたUsageテンプレートを返す。

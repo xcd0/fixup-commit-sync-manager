@@ -88,26 +88,28 @@ func (v *VHDXManager) createVHDXWithDiskpart() error {
 
 // initializeAndFormatVHDX はVHDXを初期化してフォーマットする。
 func (v *VHDXManager) initializeAndFormatVHDX() error {
+	targetLetter := strings.TrimSuffix(v.MountPoint, ":")
+	
 	// VHDX作成後の初期化処理をPowerShellで実行。
-	// この部分は今後、go-winioの機能で置き換え可能。
-	script := fmt.Sprintf(`
-		$vhdxPath = "%s"
-		$mountPoint = "%s"
-		
-		# VHDXをアタッチ
-		$disk = Mount-VHD -Path $vhdxPath -PassThru | Get-Disk
-		
-		# パーティション初期化
-		$disk | Initialize-Disk -PartitionStyle GPT -PassThru |
-		New-Partition -AssignDriveLetter -UseMaximumSize |
-		Format-Volume -FileSystem NTFS -NewFileSystemLabel "VHDX" -Confirm:$false
-		
-		# 指定されたドライブレターに変更
-		$partition = Get-Partition -DiskNumber $disk.Number | Where-Object Type -eq 'Basic'
-		if ($partition) {
-			$partition | Set-Partition -NewDriveLetter (%s)
-		}
-	`, v.VHDXPath, v.MountPoint, strings.TrimSuffix(v.MountPoint, ":"))
+	scriptLines := []string{
+		fmt.Sprintf("$vhdxPath = \"%s\"", v.VHDXPath),
+		fmt.Sprintf("$targetLetter = \"%s\"", targetLetter),
+		"",
+		"# VHDXをアタッチ",
+		"$disk = Mount-VHD -Path $vhdxPath -PassThru | Get-Disk",
+		"",
+		"# パーティション初期化",
+		"$disk | Initialize-Disk -PartitionStyle GPT -PassThru |",
+		"New-Partition -AssignDriveLetter -UseMaximumSize |",
+		"Format-Volume -FileSystem NTFS -NewFileSystemLabel \"VHDX\" -Confirm:$false",
+		"",
+		"# 指定されたドライブレターに変更",
+		"$partition = Get-Partition -DiskNumber $disk.Number | Where-Object Type -eq 'Basic'",
+		"if ($partition) {",
+		"    $partition | Set-Partition -NewDriveLetter $targetLetter",
+		"}",
+	}
+	script := strings.Join(scriptLines, "\n")
 
 	cmd := exec.Command("powershell", "-Command", script)
 	output, err := cmd.CombinedOutput()
@@ -152,19 +154,22 @@ exit
 
 // assignDriveLetter はVHDXに指定されたドライブレターを割り当てる。
 func (v *VHDXManager) assignDriveLetter() error {
-	script := fmt.Sprintf(`
-		$vhdxPath = "%s"
-		$targetLetter = "%s"
-		
-		# VHDXに関連付けられたディスクを取得
-		$disk = Get-VHD -Path $vhdxPath | Get-Disk
-		if ($disk) {
-			$partition = Get-Partition -DiskNumber $disk.Number | Where-Object Type -eq 'Basic'
-			if ($partition -and $partition.DriveLetter -ne $targetLetter) {
-				$partition | Set-Partition -NewDriveLetter $targetLetter
-			}
-		}
-	`, v.VHDXPath, strings.TrimSuffix(v.MountPoint, ":"))
+	targetLetter := strings.TrimSuffix(v.MountPoint, ":")
+	
+	scriptLines := []string{
+		fmt.Sprintf("$vhdxPath = \"%s\"", v.VHDXPath),
+		fmt.Sprintf("$targetLetter = \"%s\"", targetLetter),
+		"",
+		"# VHDXに関連付けられたディスクを取得",
+		"$disk = Get-VHD -Path $vhdxPath | Get-Disk",
+		"if ($disk) {",
+		"    $partition = Get-Partition -DiskNumber $disk.Number | Where-Object Type -eq 'Basic'",
+		"    if ($partition -and $partition.DriveLetter -ne $targetLetter) {",
+		"        $partition | Set-Partition -NewDriveLetter $targetLetter",
+		"    }",
+		"}",
+	}
+	script := strings.Join(scriptLines, "\n")
 
 	cmd := exec.Command("powershell", "-Command", script)
 	output, err := cmd.CombinedOutput()
@@ -223,16 +228,142 @@ func (v *VHDXManager) CreateSnapshot(name string) error {
 	return v.createSnapshotWithPowerShell(snapshotPath)
 }
 
+// createVHDXWithPowerShell はPowerShellを使用してVHDXを作成する。
+func (v *VHDXManager) createVHDXWithPowerShell() error {
+	sizeInBytes := v.parseSizeToBytes()
+	sizeInGB := sizeInBytes / (1024 * 1024 * 1024)
+	if sizeInGB == 0 {
+		sizeInGB = 1 // 最小1GB
+	}
+
+	// VHDXファイルパスを絶対パスに変換。
+	absPath, err := filepath.Abs(v.VHDXPath)
+	if err != nil {
+		return fmt.Errorf("failed to convert VHDX path to absolute: %w", err)
+	}
+
+	// ディレクトリが存在することを確認。
+	dir := filepath.Dir(absPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create VHDX directory: %w", err)
+	}
+
+	// PowerShellスクリプトでVHDX作成。
+	scriptLines := []string{
+		fmt.Sprintf("$vhdxPath = \"%s\"", absPath),
+		fmt.Sprintf("$sizeBytes = %d", sizeInBytes),
+		"",
+		"# 既存ファイルチェック",
+		"if (Test-Path $vhdxPath) {",
+		"    throw \"VHDX file already exists: $vhdxPath\"",
+		"}",
+		"",
+		"# VHDXを作成",
+		"New-VHD -Path $vhdxPath -SizeBytes $sizeBytes -Dynamic",
+		"",
+		"Write-Output \"VHDX created successfully: $vhdxPath ($sizeBytes bytes)\"",
+	}
+	script := strings.Join(scriptLines, "\n")
+
+	cmd := exec.Command("powershell", "-Command", script)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to create VHDX with PowerShell (path=%s, size=%d bytes): %w, output: %s", 
+			absPath, sizeInBytes, err, string(output))
+	}
+
+	// VHDX作成成功後、パスを更新。
+	v.VHDXPath = absPath
+
+	// WSL環境ではVHDX作成のみ行い、初期化は後で実行。
+	if strings.Contains(absPath, "wsl.localhost") {
+		fmt.Printf("VHDX created successfully (initialization skipped in WSL): %s\n", absPath)
+		return nil
+	}
+	
+	// VHDX作成後、フォーマットとマウントを実行。
+	return v.initializeAndFormatVHDX()
+}
+
+// mountVHDXWithPowerShell はPowerShellを使用してVHDXをマウントする。
+func (v *VHDXManager) mountVHDXWithPowerShell() error {
+	targetLetter := strings.TrimSuffix(v.MountPoint, ":")
+	
+	// PowerShellスクリプトを個別に構築してGoの変数展開問題を回避。
+	scriptLines := []string{
+		fmt.Sprintf("$vhdxPath = \"%s\"", v.VHDXPath),
+		fmt.Sprintf("$targetLetter = \"%s\"", targetLetter),
+		"",
+		"# VHDXをマウント",
+		"$disk = Mount-VHD -Path $vhdxPath -PassThru | Get-Disk",
+		"",
+		"if ($disk) {",
+		"    # パーティションを取得",
+		"    $partition = Get-Partition -DiskNumber $disk.Number | Where-Object Type -eq 'Basic' | Select-Object -First 1",
+		"    ",
+		"    if ($partition) {",
+		"        # 指定されたドライブレターに変更",
+		"        if ($partition.DriveLetter -ne $targetLetter) {",
+		"            $partition | Set-Partition -NewDriveLetter $targetLetter",
+		"        }",
+		"        Write-Output \"VHDX mounted successfully at $targetLetter:\"",
+		"    } else {",
+		"        Write-Warning \"No basic partition found on the disk\"",
+		"    }",
+		"} else {",
+		"    throw \"Failed to get disk information after mounting VHDX\"",
+		"}",
+	}
+	script := strings.Join(scriptLines, "\n")
+
+	cmd := exec.Command("powershell", "-Command", script)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to mount VHDX with PowerShell: %w, output: %s", err, string(output))
+	}
+
+	return nil
+}
+
+// unmountVHDXWithPowerShell はPowerShellを使用してVHDXをアンマウントする。
+func (v *VHDXManager) unmountVHDXWithPowerShell() error {
+	scriptLines := []string{
+		fmt.Sprintf("$vhdxPath = \"%s\"", v.VHDXPath),
+		"",
+		"# VHDXをアンマウント",
+		"try {",
+		"    Dismount-VHD -Path $vhdxPath",
+		"    Write-Output \"VHDX unmounted successfully: $vhdxPath\"",
+		"} catch {",
+		"    throw \"Failed to unmount VHDX: $($_.Exception.Message)\"",
+		"}",
+	}
+	script := strings.Join(scriptLines, "\n")
+
+	cmd := exec.Command("powershell", "-Command", script)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to unmount VHDX with PowerShell: %w, output: %s", err, string(output))
+	}
+
+	// ハンドルをリセット。
+	v.handle = 0
+
+	return nil
+}
+
 // createSnapshotWithGoWinio の実装はプラットフォーム固有ファイルに移動。
 
 // createSnapshotWithPowerShell は従来のPowerShell方式でスナップショットを作成する。
 func (v *VHDXManager) createSnapshotWithPowerShell(snapshotPath string) error {
-	cmd := exec.Command("powershell", "-Command", fmt.Sprintf(`
-		$vhd = "%s"
-		$snapshot = "%s"
-		New-VHD -Path $snapshot -ParentPath $vhd -Differencing
-	`, v.VHDXPath, snapshotPath))
+	scriptLines := []string{
+		fmt.Sprintf("$vhd = \"%s\"", v.VHDXPath),
+		fmt.Sprintf("$snapshot = \"%s\"", snapshotPath),
+		"New-VHD -Path $snapshot -ParentPath $vhd -Differencing",
+	}
+	script := strings.Join(scriptLines, "\n")
 
+	cmd := exec.Command("powershell", "-Command", script)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot: %w, output: %s", err, string(output))

@@ -4,14 +4,16 @@
 package vhdx
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
 
 // TestWindowsSpecificFunctions はWindows固有機能の詳細テスト。
 func TestWindowsSpecificFunctions(t *testing.T) {
-	tempDir := t.TempDir()
-	vhdxPath := filepath.Join(tempDir, "windows-test.vhdx")
+	testDir := "./test/vhdx"
+	os.MkdirAll(testDir, 0755)
+	vhdxPath := filepath.Join(testDir, "windows-test.vhdx")
 	
 	manager := NewManager(vhdxPath, "Z:")
 	
@@ -37,7 +39,7 @@ func TestWindowsSpecificFunctions(t *testing.T) {
 		t.Logf("unmountVHDXWithGoWinio() expected to fail for non-mounted VHDX: %v", err)
 	}
 	
-	snapshotPath := filepath.Join(tempDir, "snapshot.vhdx")
+	snapshotPath := filepath.Join(testDir, "snapshot.vhdx")
 	err = manager.createSnapshotWithGoWinio(snapshotPath)
 	if err != nil {
 		t.Logf("createSnapshotWithGoWinio() expected to fail for non-existent parent VHDX: %v", err)
@@ -46,26 +48,25 @@ func TestWindowsSpecificFunctions(t *testing.T) {
 
 // TestWindowsVirtualDiskHandling はWindows環境でのVirtualDiskハンドリングテスト。
 func TestWindowsVirtualDiskHandling(t *testing.T) {
-	tempDir := t.TempDir()
-	vhdxPath := filepath.Join(tempDir, "handle-test.vhdx")
+	testDir := "./test/vhdx"
+	os.MkdirAll(testDir, 0755)
+	vhdxPath := filepath.Join(testDir, "handle-test.vhdx")
 	
 	manager := NewManager(vhdxPath, "Y:")
 	
 	// VirtualDiskハンドルの初期状態確認。
 	// Windows環境では実際のgo-winio VirtualDisk型が使用される。
-	// 初期状態では空のハンドルである。
-	
-	// ハンドルのClose動作をテスト。
-	err := manager.handle.Close()
-	if err != nil {
-		t.Errorf("VirtualDisk.Close() should not fail for empty handle: %v", err)
+	// VirtualDiskはsyscall.Handleの別名で、初期状態は0。
+	if manager.handle != 0 {
+		t.Errorf("Initial VirtualDisk handle should be 0, got %v", manager.handle)
 	}
 }
 
 // TestWindowsPowerShellIntegration はPowerShell統合のテスト。
 func TestWindowsPowerShellIntegration(t *testing.T) {
-	tempDir := t.TempDir()
-	vhdxPath := filepath.Join(tempDir, "powershell-test.vhdx")
+	testDir := "./test/vhdx"
+	os.MkdirAll(testDir, 0755)
+	vhdxPath := filepath.Join(testDir, "powershell-test.vhdx")
 	
 	manager := NewManager(vhdxPath, "X:")
 	
@@ -82,7 +83,7 @@ func TestWindowsPowerShellIntegration(t *testing.T) {
 		t.Logf("initializeAndFormatVHDX() expected to fail for non-existent VHDX: %v", err)
 	}
 	
-	snapshotPath := filepath.Join(tempDir, "powershell-snapshot.vhdx")
+	snapshotPath := filepath.Join(testDir, "powershell-snapshot.vhdx")
 	err = manager.createSnapshotWithPowerShell(snapshotPath)
 	if err != nil {
 		t.Logf("createSnapshotWithPowerShell() expected to fail for non-existent parent VHDX: %v", err)
@@ -91,8 +92,9 @@ func TestWindowsPowerShellIntegration(t *testing.T) {
 
 // TestWindowsRealWorldScenario は実際の使用シナリオに近いテスト。
 func TestWindowsRealWorldScenario(t *testing.T) {
-	tempDir := t.TempDir()
-	vhdxPath := filepath.Join(tempDir, "realworld-test.vhdx")
+	testDir := "./test/vhdx"
+	os.MkdirAll(testDir, 0755)
+	vhdxPath := filepath.Join(testDir, "realworld-test.vhdx")
 	
 	manager := NewManager(vhdxPath, "W:")
 	

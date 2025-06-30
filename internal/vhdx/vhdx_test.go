@@ -81,11 +81,14 @@ func TestParseInt(t *testing.T) {
 }
 
 func TestGenerateDiskpartScript(t *testing.T) {
+	testDir := "./test/temp"
+	os.MkdirAll(testDir, 0755)
+	
 	var vhdxPath string
 	if runtime.GOOS == "windows" {
-		vhdxPath = "C:\\test\\test.vhdx"
+		vhdxPath = filepath.Join(testDir, "test.vhdx")
 	} else {
-		vhdxPath = "/test/test.vhdx"
+		vhdxPath = filepath.Join(testDir, "test.vhdx")
 	}
 
 	manager := &VHDXManager{
@@ -243,8 +246,9 @@ func TestParseSizeToBytes(t *testing.T) {
 
 // TestCreateVHDX はVHDX作成機能のテスト。
 func TestCreateVHDX(t *testing.T) {
-	tempDir := t.TempDir()
-	vhdxPath := filepath.Join(tempDir, "test.vhdx")
+	testDir := "./test/vhdx"
+	os.MkdirAll(testDir, 0755)
+	vhdxPath := filepath.Join(testDir, "test.vhdx")
 	
 	manager := NewManager(vhdxPath, "X:")
 	
@@ -254,6 +258,7 @@ func TestCreateVHDX(t *testing.T) {
 		t.Fatalf("Failed to create existing file: %v", err)
 	}
 	existingFile.Close()
+	defer os.Remove(vhdxPath) // クリーンアップ
 	
 	err = manager.CreateVHDX()
 	if err == nil {
@@ -266,10 +271,12 @@ func TestCreateVHDX(t *testing.T) {
 
 // TestCreate はCreate関数のテスト。
 func TestCreate(t *testing.T) {
-	tempDir := t.TempDir()
-	vhdxPath := filepath.Join(tempDir, "new.vhdx")
+	testDir := "./test/vhdx"
+	os.MkdirAll(testDir, 0755)
+	vhdxPath := filepath.Join(testDir, "new.vhdx")
 	
 	manager := NewManager(vhdxPath, "X:")
+	defer os.Remove(vhdxPath) // クリーンアップ
 	
 	// 新しいサイズと暗号化設定でテスト。
 	err := manager.Create("20GB", true)
@@ -496,10 +503,10 @@ func TestPlatformSpecificFunctions(t *testing.T) {
 func TestVirtualDiskType(t *testing.T) {
 	var vd VirtualDisk
 	
-	// Close関数のテスト。
-	err := vd.Close()
-	if err != nil {
-		t.Errorf("VirtualDisk.Close() should not fail: %v", err)
+	// VirtualDiskはsyscall.Handleの別名であることを確認。
+	// Handleは単なるuintptrなので、デフォルト値は0。
+	if vd != 0 {
+		t.Errorf("Default VirtualDisk should be 0, got %v", vd)
 	}
 }
 

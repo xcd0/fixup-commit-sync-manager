@@ -81,6 +81,31 @@ make build
 | `mount-vhdx` | VHDX ファイルをマウント |
 | `unmount-vhdx` | VHDX ファイルをアンマウント |
 | `snapshot-vhdx` | VHDX スナップショットを管理 |
+| `completion` | シェル補完スクリプトを生成 |
+
+### シェル補完
+
+Bash、Zsh、Fish、PowerShell でのタブ補完をサポートしています。
+
+```bash
+# 実行中のシェルを自動判別して補完スクリプトをインストール
+./fixup-commit-sync-manager completion
+
+# 特定のシェル用にインストール
+./fixup-commit-sync-manager completion bash
+./fixup-commit-sync-manager completion zsh
+./fixup-commit-sync-manager completion fish
+./fixup-commit-sync-manager completion powershell
+
+# スクリプトを標準出力に表示（インストールせずに確認）
+./fixup-commit-sync-manager completion --print
+```
+
+**自動インストール先:**
+- **Bash**: `$HOME/.bash_completion`
+- **Zsh**: `$HOME/.zsh/completion/_fixup-commit-sync-manager`
+- **Fish**: `$HOME/.config/fish/completions/fixup-commit-sync-manager.fish`
+- **PowerShell**: `$HOME/Documents/PowerShell/Scripts/fixup-completion.ps1`
 
 ### グローバルオプション
 
