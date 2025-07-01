@@ -235,6 +235,155 @@ make watch
 make test-coverage
 ```
 
+## テスト
+
+FixupCommitSyncManager は包括的なテストスイートを提供しており、様々なレベルでの品質保証を行っています。
+
+### テストカテゴリ
+
+#### 📝 **基本テスト**
+- **ユニットテスト**: 各パッケージの個別機能テスト
+- **統合テスト**: コンポーネント間の連携テスト
+- **E2Eテスト**: 実際のGitリポジトリを使った統合テスト
+
+#### 🔄 **E2E統合テスト**
+- **コマンド実行テスト**: 基本的なコマンド実行機能
+- **実際のワークフローテスト**: 本物のGitリポジトリでの動作確認
+- **完全ワークフローテスト**: 30秒間の継続的開発シミュレーション
+
+### テストコマンド一覧
+
+#### **基本テスト**
+```bash
+make test              # 全テスト実行
+make test-short        # 短時間テスト（統合テスト除く）
+make test-unit         # ユニットテストのみ
+```
+
+#### **統合テスト**
+```bash
+make test-integration  # 既存統合テスト
+make test-e2e          # E2E統合テスト
+make test-full         # 全統合テスト
+```
+
+#### **パッケージ別テスト**
+```bash
+make test-cmd          # CMDパッケージ
+make test-config       # Configパッケージ
+make test-sync         # Syncパッケージ
+make test-fixup        # Fixupパッケージ
+make test-vhdx         # VHDXパッケージ
+```
+
+#### **E2E個別テスト**
+```bash
+make test-command-execution # コマンド実行テスト
+make test-real-workflow     # 実際のワークフロー
+make test-complete-workflow # 完全ワークフロー（30秒）
+```
+
+#### **品質保証フロー**
+```bash
+make test-coverage         # テストカバレッジ
+make test-coverage-detail  # 詳細カバレッジ（パッケージ別）
+make test-ci              # CI用フロー（短時間）
+make test-qa              # QA用フロー（包括的）
+make test-release         # リリース前フロー
+```
+
+#### **便利コマンド**
+```bash
+make test-summary     # 全テストコマンドの概要表示
+```
+
+### 開発フローでの使用例
+
+#### **開発中の素早いチェック**
+```bash
+# 短時間での基本チェック
+make test-short
+
+# 特定パッケージの詳細チェック
+make test-sync
+make test-config
+```
+
+#### **機能追加時の確認**
+```bash
+# 関連パッケージのテスト
+make test-sync test-fixup
+
+# E2E統合テストで動作確認
+make test-command-execution
+make test-real-workflow
+```
+
+#### **リリース前の品質確認**
+```bash
+# 包括的なテストフロー
+make test-qa
+
+# リリース前の完全チェック
+make test-release
+```
+
+#### **CI/CD環境での使用**
+```bash
+# CI用の短時間フロー
+make test-ci
+
+# QA環境での包括的テスト
+make test-qa
+```
+
+### テスト実装の特徴
+
+#### **🎯 TDD (Test-Driven Development)**
+- t-wadaの手法に基づくテストファースト開発
+- Red → Green → Refactor サイクルの実践
+
+#### **🔄 動的ブランチ追従テスト**
+- Dev側のブランチ変更を自動検出
+- Ops側の自動ブランチ切り替えをテスト
+- リアルタイムでの同期動作を検証
+
+#### **⚡ 実際のGit操作テスト**
+- 本物のGitリポジトリでの動作確認
+- 実際のコミット、ブランチ操作を検証
+- ファイルの追加、変更、削除をテスト
+
+#### **🕒 継続的動作テスト**
+- 30秒間の継続的開発シミュレーション
+- 複数ファイルの自動作成・コミット
+- 自動同期・fixup動作の検証
+
+### テスト環境要件
+
+#### **必須環境**
+- Go 1.20+
+- Git（ユニバーサル操作用）
+
+#### **推奨環境**
+- Windows 10/11（VHDX機能テスト用）
+- 管理者権限（VHDX作成・マウント用）
+
+### テスト結果の確認
+
+```bash
+# テストカバレッジの確認
+make test-coverage
+open coverage.html
+
+# パッケージ別詳細カバレッジ
+make test-coverage-detail
+ls coverage-*.out
+
+# セキュリティ・脆弱性チェック
+make security-scan
+make vuln-check
+```
+
 ## アーキテクチャ
 
 ```
