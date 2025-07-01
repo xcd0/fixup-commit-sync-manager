@@ -155,7 +155,8 @@ func (f *FixupManager) getBaseCommit() (string, error) {
 }
 
 func (f *FixupManager) getModifiedFilesCount() (int, error) {
-	cmd := exec.Command(f.cfg.GitExecutable, "diff", "--name-only", "--cached")
+	// ステージされた変更とワーキングディレクトリの変更の両方をチェック。
+	cmd := exec.Command(f.cfg.GitExecutable, "diff", "--name-only", "HEAD")
 	cmd.Dir = f.cfg.OpsRepoPath
 	output, err := cmd.Output()
 	if err != nil {
@@ -171,7 +172,7 @@ func (f *FixupManager) getModifiedFilesCount() (int, error) {
 }
 
 func (f *FixupManager) gitAddAll() error {
-	cmd := exec.Command(f.cfg.GitExecutable, "add", "-u")
+	cmd := exec.Command(f.cfg.GitExecutable, "add", ".")
 	cmd.Dir = f.cfg.OpsRepoPath
 	output, err := cmd.CombinedOutput()
 	if err != nil {

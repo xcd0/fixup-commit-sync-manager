@@ -107,10 +107,17 @@ func (s *FileSyncer) detectChanges() (*SyncResult, error) {
 
 	for _, file := range trackedChanges {
 		if s.shouldIncludeFile(file) {
-			if s.fileExistsInOps(file) {
+			// Dev側でファイルが存在するかチェック。
+			devFilePath := filepath.Join(s.cfg.DevRepoPath, file)
+			if _, err := os.Stat(devFilePath); os.IsNotExist(err) {
+				// Dev側にファイルが存在しない場合は削除。
+				result.FilesDeleted = append(result.FilesDeleted, file)
+			} else if s.fileExistsInOps(file) {
+				// Dev側に存在し、Ops側にも存在する場合は変更。
 				result.FilesModified = append(result.FilesModified, file)
 			} else {
-				result.FilesDeleted = append(result.FilesDeleted, file)
+				// Dev側に存在するがOps側に存在しない場合は追加。
+				result.FilesAdded = append(result.FilesAdded, file)
 			}
 		}
 	}

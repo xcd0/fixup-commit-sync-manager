@@ -164,6 +164,9 @@ func TestDynamicBranchSyncFlow(t *testing.T) {
 		t.Fatalf("Sync() failed: %v", err)
 	}
 
+	t.Logf("Sync result - Added: %v, Modified: %v, Deleted: %v", 
+		result.FilesAdded, result.FilesModified, result.FilesDeleted)
+
 	if len(result.FilesAdded) == 0 {
 		t.Error("Expected files to be added")
 	}
