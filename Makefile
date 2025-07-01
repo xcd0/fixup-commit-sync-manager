@@ -49,7 +49,8 @@ endif
 # メインターゲット
 # ============================================================================
 .PHONY: all help build clean release test lint fmt vet install deps update-deps
-.PHONY: cross-compile run get-upx
+.PHONY: cross-compile run get-upx test-unit test-integration test-e2e test-short
+.PHONY: test-cmd test-config test-sync test-fixup test-vhdx test-full
 .DEFAULT_GOAL := help
 
 all: help
@@ -105,15 +106,75 @@ release: clean release-win release-linux ## 両OS用リリース一括ビルド�
 # ============================================================================
 # 開発用ターゲット
 # ============================================================================
-test: ## テスト実行。
-	@echo "テストを実行中..."
+test: ## 全テスト実行。
+	@echo "全テストを実行中..."
 	GOOS=windows go test -v ./...
+
+test-short: ## 短時間テスト実行（統合テストをスキップ）。
+	@echo "短時間テストを実行中..."
+	GOOS=windows go test -v -short ./...
+
+test-unit: ## ユニットテストのみ実行。
+	@echo "ユニットテストを実行中..."
+	GOOS=windows go test -v -run "^Test[^E2E]" ./...
+
+test-integration: ## 既存の統合テスト実行。
+	@echo "統合テストを実行中..."
+	GOOS=windows go test -v ./test -run "TestIntegration" -timeout 70s
+
+test-e2e: ## E2E統合テスト実行。
+	@echo "E2E統合テストを実行中..."
+	GOOS=windows go test -v ./test -run "TestE2E" -timeout 40s
+
+test-cmd: ## CMDパッケージのテスト実行。
+	@echo "CMDパッケージのテストを実行中..."
+	GOOS=windows go test -v ./cmd
+
+test-config: ## Configパッケージのテスト実行。
+	@echo "Configパッケージのテストを実行中..."
+	GOOS=windows go test -v ./internal/config
+
+test-sync: ## Syncパッケージのテスト実行。
+	@echo "Syncパッケージのテストを実行中..."
+	GOOS=windows go test -v ./internal/sync
+
+test-fixup: ## Fixupパッケージのテスト実行。
+	@echo "Fixupパッケージのテストを実行中..."
+	GOOS=windows go test -v ./internal/fixup
+
+test-vhdx: ## VHDXパッケージのテスト実行。
+	@echo "VHDXパッケージのテストを実行中..."
+	GOOS=windows go test -v ./internal/vhdx
+
+test-full: ## 全機能統合テスト（E2E + Integration）。
+	@echo "全機能統合テストを実行中..."
+	GOOS=windows go test -v ./test -timeout 80s
+
+test-command-execution: ## コマンド実行E2Eテスト。
+	@echo "コマンド実行E2Eテストを実行中..."
+	GOOS=windows go test -v ./test -run "TestE2ECommandExecution"
+
+test-real-workflow: ## 実際のワークフローE2Eテスト。
+	@echo "実際のワークフローE2Eテストを実行中..."
+	GOOS=windows go test -v ./test -run "TestE2ERealRepositoryWorkflow"
+
+test-complete-workflow: ## 完全ワークフローE2Eテスト（30秒）。
+	@echo "完全ワークフローE2Eテストを実行中..."
+	GOOS=windows go test -v ./test -run "TestE2ECompleteWorkflow" -timeout 35s
 
 test-coverage: ## テストカバレッジを計測。
 	@echo "テストカバレッジを計測中..."
 	GOOS=windows go test -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "カバレッジレポート: coverage.html"
+
+test-coverage-detail: ## 詳細テストカバレッジを計測（パッケージ別）。
+	@echo "詳細テストカバレッジを計測中..."
+	@for pkg in cmd internal/config internal/sync internal/fixup internal/vhdx internal/logger internal/retry; do \
+		echo "テスト中: $$pkg"; \
+		GOOS=windows go test -coverprofile=coverage-$$(basename $$pkg).out ./$$pkg || true; \
+	done
+	@echo "パッケージ別カバレッジファイル生成完了"
 
 benchmark: ## ベンチマークテスト実行。
 	@echo "ベンチマークテストを実行中..."
@@ -203,7 +264,7 @@ clean-binary: ## バイナリファイルを削除。
 
 clean-coverage: ## カバレッジファイルを削除。
 	@echo "カバレッジファイルを削除中..."
-	@rm -f coverage.out coverage.html
+	@rm -f coverage.out coverage.html coverage-*.out
 
 clean: clean-binary clean-coverage ## 基本的な掃除。
 	@echo "基本的な掃除完了。"
@@ -332,3 +393,62 @@ demo: build ## デモ実行（ヘルプとバージョン表示）。
 	@echo ""
 	@echo "3. サブコマンド例 (sync --help):"
 	$(BIN_DIR)/$(BIN)$(EXE_EXT) sync --help
+
+# ============================================================================
+# CI/CD・品質保証用テストフロー
+# ============================================================================
+test-ci: ## CI用テストフロー（短時間テスト）。
+	@echo "=== CI用テストフローを実行中 ==="
+	@make test-short
+	@make lint
+	@make vet
+
+test-qa: ## QA用テストフロー（包括的テスト）。
+	@echo "=== QA用テストフローを実行中 ==="
+	@make test-unit
+	@make test-integration
+	@make test-e2e
+	@make test-coverage
+	@echo "=== QA用テストフロー完了 ==="
+
+test-release: ## リリース前品質確認フロー。
+	@echo "=== リリース前品質確認フローを実行中 ==="
+	@make clean
+	@make test-full
+	@make test-coverage-detail
+	@make security-scan
+	@make vuln-check
+	@echo "=== リリース前品質確認フロー完了 ==="
+
+test-summary: ## 全テストの概要を表示。
+	@echo "=== FixupCommitSyncManager テストコマンド概要 ==="
+	@echo ""
+	@echo "【基本テスト】"
+	@echo "  make test              - 全テスト実行"
+	@echo "  make test-short        - 短時間テスト（統合テスト除く）"
+	@echo "  make test-unit         - ユニットテストのみ"
+	@echo ""
+	@echo "【統合テスト】"
+	@echo "  make test-integration  - 既存統合テスト"
+	@echo "  make test-e2e          - E2E統合テスト"
+	@echo "  make test-full         - 全統合テスト"
+	@echo ""
+	@echo "【パッケージ別テスト】"
+	@echo "  make test-cmd          - CMDパッケージ"
+	@echo "  make test-config       - Configパッケージ"
+	@echo "  make test-sync         - Syncパッケージ"
+	@echo "  make test-fixup        - Fixupパッケージ"
+	@echo "  make test-vhdx         - VHDXパッケージ"
+	@echo ""
+	@echo "【E2E個別テスト】"
+	@echo "  make test-command-execution - コマンド実行テスト"
+	@echo "  make test-real-workflow     - 実際のワークフロー"
+	@echo "  make test-complete-workflow - 完全ワークフロー（30秒）"
+	@echo ""
+	@echo "【品質保証】"
+	@echo "  make test-coverage         - テストカバレッジ"
+	@echo "  make test-coverage-detail  - 詳細カバレッジ"
+	@echo "  make test-ci              - CI用フロー"
+	@echo "  make test-qa              - QA用フロー"
+	@echo "  make test-release         - リリース前フロー"
+	@echo ""
