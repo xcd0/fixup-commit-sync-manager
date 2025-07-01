@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -467,11 +469,16 @@ func cloneRepositorySimple(srcPath, destPath string) error {
 		}
 	}
 
+	// 目的地ディレクトリが既に存在する場合はエラー。
+	if _, err := os.Stat(destPath); err == nil {
+		return fmt.Errorf("目的地ディレクトリが既に存在します: %s", destPath)
+	}
+
 	// git clone 実行 (ローカルクローン)。
 	cmd := fmt.Sprintf("git clone %s %s", srcPath, destPath)
 	log.Printf("クローン実行: %s", cmd)
 	
-	return nil
+	return runCommand(cmd)
 }
 
 // isWindowsDriveRoot はWindowsドライブルート（例: "Q:"）かどうかを判定する。
@@ -629,7 +636,67 @@ func executePeriodicFixup(cfg *Config, args *RunArgs) error {
 func runCommand(command string) error {
 	log.Printf("コマンド実行: %s", command)
 	
-	// 実際のコマンド実行は今後実装。
-	// 現在はプレースホルダー。
+	// 空のコマンドはエラー。
+	if strings.TrimSpace(command) == "" {
+		return fmt.Errorf("コマンドが空です")
+	}
+	
+	// コマンドを実行。
+	var cmd *exec.Cmd
+	
+	// プラットフォーム別のコマンド実行。
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("cmd", "/C", command)
+		// UNCパス警告を抑制するため、実行可能な作業ディレクトリを設定。
+		cmd.Dir = "C:\\"
+	} else {
+		cmd = exec.Command("sh", "-c", command)
+	}
+	
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("コマンド実行エラー: %w, 出力: %s", err, string(output))
+	}
+	
+	// 出力がある場合はログに記録。
+	if len(output) > 0 {
+		log.Printf("コマンド出力: %s", strings.TrimSpace(string(output)))
+	}
+	
+	return nil
+}
+
+// runCommandInDir は指定されたディレクトリでシェルコマンドを実行。
+func runCommandInDir(command, dir string) error {
+	log.Printf("コマンド実行 (in %s): %s", dir, command)
+	
+	// 空のコマンドはエラー。
+	if strings.TrimSpace(command) == "" {
+		return fmt.Errorf("コマンドが空です")
+	}
+	
+	// コマンドを実行。
+	var cmd *exec.Cmd
+	
+	// プラットフォーム別のコマンド実行。
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("cmd", "/C", command)
+	} else {
+		cmd = exec.Command("sh", "-c", command)
+	}
+	
+	// 作業ディレクトリを設定。
+	cmd.Dir = dir
+	
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("コマンド実行エラー: %w, 出力: %s", err, string(output))
+	}
+	
+	// 出力がある場合はログに記録。
+	if len(output) > 0 {
+		log.Printf("コマンド出力: %s", strings.TrimSpace(string(output)))
+	}
+	
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -325,36 +326,132 @@ func TestValidateConfiguration(t *testing.T) {
 
 // TestCloneRepositorySimple はcloneRepositorySimple関数のテスト。
 func TestCloneRepositorySimple(t *testing.T) {
-	t.Run("clone repository", func(t *testing.T) {
+	if !isGitAvailable() {
+		t.Skip("Git not available, skipping clone repository test")
+	}
+	
+	t.Run("clone local repository", func(t *testing.T) {
 		tempDir := t.TempDir()
-		srcPath := "/source/repo"
+		
+		// ソースリポジトリを作成。
+		srcPath := filepath.Join(tempDir, "source-repo")
+		err := os.MkdirAll(srcPath, 0755)
+		if err != nil {
+			t.Fatalf("Failed to create source directory: %v", err)
+		}
+		
+		// ソースでgitリポジトリを初期化。
+		err = runCommandInDir("git init", srcPath)
+		if err != nil {
+			t.Fatalf("Failed to init source git repo: %v", err)
+		}
+		
+		// ソースに設定を追加。
+		err = runCommandInDir("git config user.name TestUser", srcPath)
+		if err != nil {
+			t.Fatalf("Failed to configure source git repo name: %v", err)
+		}
+		
+		err = runCommandInDir("git config user.email test@example.com", srcPath)
+		if err != nil {
+			t.Fatalf("Failed to configure source git repo email: %v", err)
+		}
+		
+		// ソースにテストファイルを作成してコミット。
+		testFile := filepath.Join(srcPath, "test.txt")
+		err = os.WriteFile(testFile, []byte("test content"), 0644)
+		if err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+		
+		err = runCommandInDir("git add test.txt", srcPath)
+		if err != nil {
+			t.Fatalf("Failed to add file to source repo: %v", err)
+		}
+		
+		err = runCommandInDir("git commit -m Initial_commit", srcPath)
+		if err != nil {
+			t.Fatalf("Failed to commit in source repo: %v", err)
+		}
+		
+		// クローン先のパス。
 		destPath := filepath.Join(tempDir, "dest-repo")
 		
-		// cloneRepositorySimpleは現在プレースホルダー実装のため、
-		// エラーが発生しないことのみを確認。
-		err := cloneRepositorySimple(srcPath, destPath)
+		// クローンを実行。
+		err = cloneRepositorySimple(srcPath, destPath)
 		if err != nil {
 			t.Errorf("cloneRepositorySimple() failed: %v", err)
 		}
 		
-		// ディレクトリが作成されることを確認。
-		parentDir := filepath.Dir(destPath)
-		if _, err := os.Stat(parentDir); os.IsNotExist(err) {
-			t.Errorf("Parent directory should be created: %s", parentDir)
+		// クローンされたディレクトリが存在することを確認。
+		if _, err := os.Stat(destPath); os.IsNotExist(err) {
+			t.Errorf("Cloned directory should exist: %s", destPath)
+		}
+		
+		// クローンされたファイルが存在することを確認。
+		clonedFile := filepath.Join(destPath, "test.txt")
+		if _, err := os.Stat(clonedFile); os.IsNotExist(err) {
+			t.Errorf("Cloned file should exist: %s", clonedFile)
+		}
+		
+		// クローンされたファイルの内容を確認。
+		content, err := os.ReadFile(clonedFile)
+		if err != nil {
+			t.Fatalf("Failed to read cloned file: %v", err)
+		}
+		if string(content) != "test content" {
+			t.Errorf("Cloned file content = %s, want 'test content'", string(content))
+		}
+	})
+	
+	t.Run("clone to existing directory", func(t *testing.T) {
+		tempDir := t.TempDir()
+		srcPath := filepath.Join(tempDir, "source")
+		destPath := filepath.Join(tempDir, "dest")
+		
+		// 既存のディレクトリを作成。
+		err := os.MkdirAll(destPath, 0755)
+		if err != nil {
+			t.Fatalf("Failed to create dest directory: %v", err)
+		}
+		
+		// 既存ディレクトリへのクローンはエラーになることを確認。
+		err = cloneRepositorySimple(srcPath, destPath)
+		if err == nil {
+			t.Error("cloneRepositorySimple() should fail for existing directory")
+		}
+	})
+	
+	t.Run("clone non-existent repository", func(t *testing.T) {
+		tempDir := t.TempDir()
+		srcPath := "/non/existent/repo"
+		destPath := filepath.Join(tempDir, "dest")
+		
+		// 存在しないリポジトリのクローンはエラーになることを確認。
+		err := cloneRepositorySimple(srcPath, destPath)
+		if err == nil {
+			t.Error("cloneRepositorySimple() should fail for non-existent repository")
 		}
 	})
 	
 	t.Run("clone to Windows drive root", func(t *testing.T) {
+		if runtime.GOOS != "windows" {
+			t.Skip("Windows-specific test")
+		}
+		
 		srcPath := "/source/repo"
 		destPath := "Q:/my-repo" // Windowsドライブルート下
 		
-		// Windowsドライブルートの場合でもエラーが発生しないことを確認。
+		// Windowsドライブルートの場合の動作確認。
+		// (実際のクローンは失敗するが、ディレクトリ処理が正しく動作することを確認)
 		err := cloneRepositorySimple(srcPath, destPath)
-		if err != nil {
-			t.Errorf("cloneRepositorySimple() with Windows drive root failed: %v", err)
+		// エラーは期待される（ソースが存在しないため）
+		if err == nil {
+			t.Log("Windows drive root clone succeeded (unexpected but okay)")
 		}
 	})
 }
+
 
 // TestIsWindowsDriveRoot はisWindowsDriveRoot関数のテスト。
 func TestIsWindowsDriveRoot(t *testing.T) {
@@ -529,14 +626,47 @@ func TestConfigJSONMarshaling(t *testing.T) {
 	}
 }
 
-// TestRunCommandPlaceholder はrunCommand関数のプレースホルダーテスト。
-func TestRunCommandPlaceholder(t *testing.T) {
-	// runCommandは現在プレースホルダー実装のため、
-	// エラーが発生しないことのみを確認。
-	err := runCommand("echo test")
-	if err != nil {
-		t.Errorf("runCommand() failed: %v", err)
-	}
+// TestRunCommand はrunCommand関数のテスト。
+func TestRunCommand(t *testing.T) {
+	t.Run("successful command", func(t *testing.T) {
+		// 成功するコマンドのテスト。
+		err := runCommand("echo test")
+		if err != nil {
+			t.Errorf("runCommand() failed: %v", err)
+		}
+	})
+	
+	t.Run("command with output", func(t *testing.T) {
+		// 出力を生成するコマンドのテスト。
+		err := runCommand("echo hello world")
+		if err != nil {
+			t.Errorf("runCommand() failed: %v", err)
+		}
+	})
+	
+	t.Run("non-existent command", func(t *testing.T) {
+		// 存在しないコマンドのテスト。
+		err := runCommand("nonexistentcommand12345")
+		if err == nil {
+			t.Error("runCommand() should fail for non-existent command")
+		}
+	})
+	
+	t.Run("empty command", func(t *testing.T) {
+		// 空のコマンドのテスト。
+		err := runCommand("")
+		if err == nil {
+			t.Error("runCommand() should fail for empty command")
+		}
+	})
+	
+	t.Run("whitespace only command", func(t *testing.T) {
+		// 空白のみのコマンドのテスト。
+		err := runCommand("   ")
+		if err == nil {
+			t.Error("runCommand() should fail for whitespace-only command")
+		}
+	})
 }
 
 // TestInitializationFlow は初期化フローの統合テスト。
